@@ -1,0 +1,449 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Search,
+  Filter,
+  Flame,
+  Scale,
+  Calendar,
+  DollarSign,
+  Share2,
+  ChevronRight,
+  UserCheck,
+  AlertTriangle,
+  FileText,
+  Sparkles,
+  Radio,
+} from 'lucide-react';
+import { ProposicaoLegislativa, CasaLegislativa } from '../types/legislative';
+import { formatarValorImpacto } from '../utils/parliamentaryMath';
+
+interface RadarVotacoesProps {
+  proposicoes: ProposicaoLegislativa[];
+  onSelecionarParaImpacto: (proposicao: ProposicaoLegislativa) => void;
+  onSelecionarParaDivulgacao: (proposicao: ProposicaoLegislativa) => void;
+  onExecutarVarredura: () => void;
+  emVarredura: boolean;
+  onDispararAlertaTeste: () => void;
+  onIrParaDiagnostico: () => void;
+}
+
+export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
+  proposicoes,
+  onSelecionarParaImpacto,
+  onSelecionarParaDivulgacao,
+  onExecutarVarredura,
+  emVarredura,
+  onDispararAlertaTeste,
+  onIrParaDiagnostico,
+}) => {
+  const [busca, setBusca] = useState('');
+  const [filtroCasa, setFiltroCasa] = useState<'TODAS' | CasaLegislativa>('TODAS');
+  const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
+  const [apenasUrgentes, setApenasUrgentes] = useState(false);
+  const [temaSelecionado, setTemaSelecionado] = useState<string>('TODOS');
+
+  // Available unique tags
+  const todosTemas = useMemo(() => {
+    const set = new Set<string>();
+    proposicoes.forEach((p) => p.tags.forEach((t) => set.add(t)));
+    return Array.from(set);
+  }, [proposicoes]);
+
+  // Filtered bills
+  const proposicoesFiltradas = useMemo(() => {
+    return proposicoes.filter((p) => {
+      if (filtroCasa !== 'TODAS' && p.casa !== filtroCasa) return false;
+      if (filtroTipo !== 'TODOS' && p.siglaTipo !== filtroTipo) return false;
+      if (apenasUrgentes && !p.regimeUrgencia) return false;
+      if (temaSelecionado !== 'TODOS' && !p.tags.includes(temaSelecionado)) return false;
+
+      if (busca.trim()) {
+        const termo = busca.toLowerCase();
+        const matchCodigo = p.codigo.toLowerCase().includes(termo);
+        const matchTitulo = p.tituloCurto.toLowerCase().includes(termo);
+        const matchEmenta = p.ementa.toLowerCase().includes(termo);
+        const matchRelator = p.relator.nome.toLowerCase().includes(termo);
+        const matchTags = p.tags.some((t) => t.toLowerCase().includes(termo));
+        if (!matchCodigo && !matchTitulo && !matchEmenta && !matchRelator && !matchTags) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [proposicoes, filtroCasa, filtroTipo, apenasUrgentes, temaSelecionado, busca]);
+
+  // High-level summary metrics
+  const totalImpactoFiscal = useMemo(() => {
+    return proposicoes.reduce((acc, curr) => acc + (curr.impacto.fiscal.valorEstimadoBi || 0), 0);
+  }, [proposicoes]);
+
+  const materiasHoje = proposicoes.filter((p) => p.dataPrevistaVotacao.toLowerCase().includes('hoje')).length;
+  const pecsNaPauta = proposicoes.filter((p) => p.siglaTipo === 'PEC').length;
+
+  return (
+    <div className="space-y-6">
+      {/* Alert Readiness & Quick Test Bar */}
+      <div className="bg-emerald-950 text-white p-4 rounded-xl border border-emerald-800/80 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center shrink-0">
+            <Radio className="w-4 h-4 text-emerald-300 animate-pulse" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>Robô de Alertas Operacional · Som e Pop-up Ativos</span>
+              <span className="bg-emerald-500 text-slate-950 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">100% ONLINE</span>
+            </div>
+            <p className="text-[11px] text-emerald-200">
+              Notifica no momento em que uma proposta entra em pauta ou atinge quórum de votação.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onDispararAlertaTeste}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 cursor-pointer transition-colors shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Testar Alerta Agora</span>
+          </button>
+
+          <button
+            onClick={onIrParaDiagnostico}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 cursor-pointer border border-emerald-700/60 transition-colors"
+          >
+            <span>Como Garantir que Funciona?</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Top Banner / Metrics Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+          <div className="text-xs text-slate-500 font-medium">Matérias Monitoradas</div>
+          <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
+            {proposicoes.length}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Câmara, Senado e Congresso
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+          <div className="text-xs text-slate-500 font-medium">Votações Previstas Hoje</div>
+          <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
+            {materiasHoje}
+          </div>
+          <div className="text-xs text-emerald-700 mt-1">
+            Na ordem do dia e deliberações
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+          <div className="text-xs text-slate-500 font-medium">PEC (3/5 de Quórum)</div>
+          <div className="text-2xl font-bold font-mono text-amber-600 mt-1">
+            {pecsNaPauta}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Exigem 308 dep. ou 49 sen.
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+          <div className="text-xs text-slate-500 font-medium">Impacto Orçamentário Rastreado</div>
+          <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
+            R$ {totalImpactoFiscal.toFixed(1)} bi
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Receitas & despesas sob votação
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por código (ex: PLP 68), relator, termo..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
+            />
+            {busca && (
+              <button
+                onClick={() => setBusca('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+
+          {/* Quick House Selector */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+            {(['TODAS', 'CAMARA', 'SENADO', 'CONGRESSO'] as const).map((casa) => (
+              <button
+                key={casa}
+                onClick={() => setFiltroCasa(casa)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  filtroCasa === casa
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {casa === 'TODAS'
+                  ? 'Todas as Casas'
+                  : casa === 'CAMARA'
+                  ? 'Câmara'
+                  : casa === 'SENADO'
+                  ? 'Senado'
+                  : 'Congresso'}
+              </button>
+            ))}
+          </div>
+
+          {/* Urgency Toggle */}
+          <button
+            onClick={() => setApenasUrgentes(!apenasUrgentes)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
+              apenasUrgentes
+                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Flame className={`w-3.5 h-3.5 ${apenasUrgentes ? 'text-amber-600' : 'text-slate-400'}`} />
+            <span>Apenas Urgência</span>
+          </button>
+        </div>
+
+        {/* Filter tags (Interactive filter segmented bar) */}
+        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100 scrollbar-none text-xs">
+          <span className="text-slate-500 flex items-center gap-1 font-medium whitespace-nowrap">
+            <Filter className="w-3 h-3" /> Temas:
+          </span>
+          <button
+            onClick={() => setTemaSelecionado('TODOS')}
+            className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer whitespace-nowrap ${
+              temaSelecionado === 'TODOS'
+                ? 'bg-slate-900 text-white font-medium'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Todos os Temas
+          </button>
+          {todosTemas.map((tema) => (
+            <button
+              key={tema}
+              onClick={() => setTemaSelecionado(tema)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer whitespace-nowrap ${
+                temaSelecionado === tema
+                  ? 'bg-emerald-700 text-white font-medium'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tema}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Results Header */}
+      <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+        <div>
+          Exibindo <span className="font-semibold text-slate-900 font-mono">{proposicoesFiltradas.length}</span> propostas prioritárias
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Critério: Urgência e Ordem do Dia</span>
+        </div>
+      </div>
+
+      {/* List of Bill Cards */}
+      {proposicoesFiltradas.length === 0 ? (
+        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
+          <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-slate-800">Nenhuma proposta encontrada</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+            Nenhuma matéria legislativa corresponde aos filtros selecionados. Tente limpar os filtros ou realizar uma nova varredura.
+          </p>
+          <button
+            onClick={() => {
+              setBusca('');
+              setFiltroCasa('TODAS');
+              setTemaSelecionado('TODOS');
+              setApenasUrgentes(false);
+            }}
+            className="mt-4 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer transition-colors"
+          >
+            Limpar Todos os Filtros
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {proposicoesFiltradas.map((proposta) => {
+            const isUrgente = proposta.regimeUrgencia;
+            const prob = proposta.probabilidadeAprovacao;
+            const probCor =
+              prob >= 75 ? 'text-emerald-700' : prob >= 50 ? 'text-amber-700' : 'text-rose-700';
+            const probBarCor =
+              prob >= 75 ? 'bg-emerald-500' : prob >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+
+            return (
+              <div
+                key={proposta.id}
+                className="bg-white rounded-xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all p-5"
+              >
+                {/* Header line with clean unboxed metadata adhering to zero-pill rules */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="font-mono font-bold text-base text-slate-950">
+                      {proposta.codigo}
+                    </span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span className="font-medium text-slate-800">
+                      {proposta.casa === 'CAMARA'
+                        ? 'Câmara dos Deputados'
+                        : proposta.casa === 'SENADO'
+                        ? 'Senado Federal'
+                        : 'Congresso Nacional'}
+                    </span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span className="text-slate-500">{proposta.orgaoAtual}</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs">
+                    {isUrgente && (
+                      <span className="flex items-center gap-1 text-amber-700 font-semibold">
+                        <Flame className="w-3.5 h-3.5 text-amber-600" /> Urgência
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 text-slate-600">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" /> {proposta.dataPrevistaVotacao}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Main Content Title and Plain Citizen Summary */}
+                <div className="space-y-2 mb-4">
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {proposta.tituloCurto}
+                  </h3>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
+                    <div className="flex items-center gap-1 text-emerald-800 font-semibold mb-1">
+                      <Sparkles className="w-3 h-3 text-emerald-600" /> Resumo Cidadão (Sem Juridiquês):
+                    </div>
+                    {proposta.resumoCidadao}
+                  </div>
+                </div>
+
+                {/* Metrics and Parliamentary Forecast Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50/80 rounded-lg text-xs border border-slate-100 mb-4">
+                  {/* Quorum requirement */}
+                  <div>
+                    <div className="text-slate-500 font-medium flex items-center gap-1">
+                      <Scale className="w-3 h-3 text-slate-400" /> Quórum Requerido
+                    </div>
+                    <div className="font-semibold text-slate-900 mt-0.5">
+                      {proposta.quorum.minimoVotos} votos ({proposta.quorum.tipo})
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {proposta.quorum.descricaoRegra}
+                    </div>
+                  </div>
+
+                  {/* Rapporteur */}
+                  <div>
+                    <div className="text-slate-500 font-medium flex items-center gap-1">
+                      <UserCheck className="w-3 h-3 text-slate-400" /> Relatoria
+                    </div>
+                    <div className="font-semibold text-slate-900 mt-0.5 truncate">
+                      {proposta.relator.nome} ({proposta.relator.partido}-{proposta.relator.uf})
+                    </div>
+                    <div className="text-[11px] text-emerald-700 font-medium">
+                      Parecer: {proposta.relator.parecer || 'Aguardando'}
+                    </div>
+                  </div>
+
+                  {/* Fiscal impact */}
+                  <div>
+                    <div className="text-slate-500 font-medium flex items-center gap-1">
+                      <DollarSign className="w-3 h-3 text-slate-400" /> Impacto Fiscal Estimado
+                    </div>
+                    <div className="font-semibold font-mono text-slate-900 mt-0.5">
+                      {formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Tipo: {proposta.impacto.fiscal.tipo} · Risco {proposta.impacto.fiscal.nivelRisco}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Probability Bar */}
+                <div className="space-y-1 mb-4">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600 font-medium">Termômetro de Aprovação:</span>
+                    <span className={`font-mono font-bold ${probCor}`}>
+                      {proposta.probabilidadeAprovacao}% de probabilidade
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${probBarCor} transition-all duration-500`}
+                      style={{ width: `${proposta.probabilidadeAprovacao}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom Actions and Tags */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    {proposta.tags.slice(0, 3).map((t, idx) => (
+                      <span key={t}>
+                        {idx > 0 && <span className="mr-2 text-slate-300">·</span>}
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `*🚨 ALERTA LEGISLATIVO:* *${proposta.codigo}*\n*${proposta.tituloCurto}*\n\n*Resumo Cidadão:* ${proposta.resumoCidadao}\n\n*Termômetro:* ${proposta.probabilidadeAprovacao}% de probabilidade de aprovação\n*Quórum Exigido:* ${proposta.quorum.minimoVotos} votos (${proposta.quorum.tipo})\n\nAcompanhe no Radar Legislativo: ${proposta.linkOficial}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                      title="Compartilhar matéria no WhatsApp com 1 clique"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>WhatsApp</span>
+                    </a>
+
+                    <button
+                      onClick={() => onSelecionarParaDivulgacao(proposta)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors cursor-pointer"
+                    >
+                      <span>Gerar Card</span>
+                    </button>
+
+                    <button
+                      onClick={() => onSelecionarParaImpacto(proposta)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer"
+                    >
+                      <span>Análise de Impacto</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};

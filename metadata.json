@@ -1,0 +1,6 @@
+{
+  "name": "Radar Legislativo - Robô de Votações & Análise de Impacto",
+  "description": "Robô inteligente de busca, varredura e divulgação de votações e pautas no Congresso Nacional (Câmara e Senado), com alertas em tempo real e dashboard de análise de impacto parlamentar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

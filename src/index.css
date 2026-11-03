@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Barra de rolagem horizontal customizada para navegação entre módulos */
+.nav-scroll-bar {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 #0b1329;
+}
+
+.nav-scroll-bar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.nav-scroll-bar::-webkit-scrollbar-track {
+  background: #0b1329;
+  border-radius: 9999px;
+}
+
+.nav-scroll-bar::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 9999px;
+}
+
+.nav-scroll-bar::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
