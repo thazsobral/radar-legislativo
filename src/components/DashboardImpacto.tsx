@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign,
   Users,
@@ -12,6 +12,11 @@ import {
   Leaf,
   Scale,
   RefreshCw,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Save,
+  Trash2,
 } from 'lucide-react';
 import { ProposicaoLegislativa } from '../types/legislative';
 import {
@@ -38,6 +43,22 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
   const [adesaoCentrao, setAdesaoCentrao] = useState<number>(70);
   const [adesaoOposicao, setAdesaoOposicao] = useState<number>(5);
 
+  // User Gemini API Key state with automatic localStorage recognition
+  const [chaveUsuario, setChaveUsuario] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        localStorage.getItem('RADAR_LEGISLATIVO_GEMINI_API_KEY') ||
+        localStorage.getItem('gemini_api_key') ||
+        ''
+      );
+    }
+    return '';
+  });
+  const [chaveInput, setChaveInput] = useState<string>(chaveUsuario);
+  const [mostrarChaveTexto, setMostrarChaveTexto] = useState<boolean>(false);
+  const [painelChaveAberto, setPainelChaveAberto] = useState<boolean>(false);
+  const [msgChave, setMsgChave] = useState<string>('');
+
   // AI Analysis state
   const [analiseIa, setAnaliseIa] = useState<{
     resumoCidadao?: string;
@@ -50,6 +71,31 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
   const [fonteAnalise, setFonteAnalise] = useState<string | null>(null);
   const [carregandoIa, setCarregandoIa] = useState(false);
   const [erroIa, setErroIa] = useState<string | null>(null);
+
+  // Salvar chave no localStorage
+  const salvarChaveNoStorage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const chaveLimpa = chaveInput.trim();
+    if (chaveLimpa) {
+      localStorage.setItem('RADAR_LEGISLATIVO_GEMINI_API_KEY', chaveLimpa);
+      localStorage.setItem('gemini_api_key', chaveLimpa);
+      setChaveUsuario(chaveLimpa);
+      setMsgChave('Chave gravada com sucesso no localStorage do seu navegador!');
+    } else {
+      removerChaveDoStorage();
+      return;
+    }
+    setTimeout(() => setMsgChave(''), 3500);
+  };
+
+  const removerChaveDoStorage = () => {
+    localStorage.removeItem('RADAR_LEGISLATIVO_GEMINI_API_KEY');
+    localStorage.removeItem('gemini_api_key');
+    setChaveUsuario('');
+    setChaveInput('');
+    setMsgChave('Chave removida do armazenamento local.');
+    setTimeout(() => setMsgChave(''), 3000);
+  };
 
   // Recalculate voting simulator dynamically
   const placarSimulado = useMemo(() => {
@@ -75,12 +121,12 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
   const atingeQuorum = placarSimulado.votosFavoraveis >= proposicaoSelecionada.quorum.minimoVotos;
   const margemQuorum = placarSimulado.votosFavoraveis - proposicaoSelecionada.quorum.minimoVotos;
 
-  // Handler to call Gemini AI analysis endpoint on the server
+  // Handler to call Gemini AI analysis endpoint on the server with user's key if provided
   const executarAnaliseIa = async () => {
     setCarregandoIa(true);
     setErroIa(null);
     try {
-      const resultado = await obterAnaliseLegislativa(proposicaoSelecionada);
+      const resultado = await obterAnaliseLegislativa(proposicaoSelecionada, chaveUsuario);
       if (resultado.sucesso && resultado.analiseIa) {
         setAnaliseIa(resultado.analiseIa);
         setFonteAnalise(resultado.fonte);
@@ -191,7 +237,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
       {/* Grid of Key Analytical Dimensions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Dimension 1: Fiscal & Budget Impact */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4">
+        <div
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4 hover:border-slate-300 transition-all"
+          title="Dimensão 1: Impacto Fiscal e Orçamentário da matéria. Avalia a repercussão nas contas públicas, projeção de custos ou arrecadação e riscos de responsabilidade fiscal."
+        >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
@@ -199,16 +248,22 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               </div>
               <h4 className="text-sm font-bold text-slate-900">Impacto Orçamentário & Fiscal</h4>
             </div>
-            <span className={`text-[11px] font-mono px-2 py-0.5 rounded font-medium ${
-              proposicaoSelecionada.impacto.fiscal.nivelRisco === 'ALTO' || proposicaoSelecionada.impacto.fiscal.nivelRisco === 'CRITICO'
-                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            }`}>
+            <span
+              className={`text-[11px] font-mono px-2 py-0.5 rounded font-medium cursor-help ${
+                proposicaoSelecionada.impacto.fiscal.nivelRisco === 'ALTO' || proposicaoSelecionada.impacto.fiscal.nivelRisco === 'CRITICO'
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}
+              title={`Nível de risco fiscal atribuído: ${proposicaoSelecionada.impacto.fiscal.nivelRisco}. Mede a probabilidade de pressão sobre as metas fiscais da União.`}
+            >
               Risco {proposicaoSelecionada.impacto.fiscal.nivelRisco}
             </span>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-center">
+          <div
+            className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-center cursor-help"
+            title={`Valor projetado de impacto financeiro: ${formatarValorImpacto(proposicaoSelecionada.impacto.fiscal.valorEstimadoBi)}. Classificado como impacto do tipo ${proposicaoSelecionada.impacto.fiscal.tipo}.`}
+          >
             <div className="text-xs text-slate-500 font-medium">Valor Projetado</div>
             <div className="text-2xl font-bold font-mono text-slate-900 mt-0.5">
               {formatarValorImpacto(proposicaoSelecionada.impacto.fiscal.valorEstimadoBi)}
@@ -224,7 +279,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
         </div>
 
         {/* Dimension 2: Social Impact */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4">
+        <div
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4 hover:border-slate-300 transition-all"
+          title="Dimensão 2: Impacto Social e Direitos Fundamentais. Diagnóstico de como a aprovação altera direitos trabalhistas, seguridade, serviços essenciais e transparência institucional."
+        >
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
               <Users className="w-4 h-4" />
@@ -247,7 +305,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
         </div>
 
         {/* Dimension 3: Regulatory & Industry Sectors */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4">
+        <div
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-xs space-y-4 hover:border-slate-300 transition-all"
+          title="Dimensão 3: Setores Econômicos Regulados e Sustentabilidade. Mapeamento das cadeias produtivas e obrigações de conformidade ambiental trazidas pela legislação."
+        >
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
               <Building2 className="w-4 h-4" />
@@ -261,7 +322,8 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               {proposicaoSelecionada.impacto.regulatorio.map((setor) => (
                 <span
                   key={setor}
-                  className="text-xs bg-slate-100 text-slate-800 font-medium px-2.5 py-1 rounded"
+                  className="text-xs bg-slate-100 text-slate-800 font-medium px-2.5 py-1 rounded cursor-help"
+                  title={`Setor produtivo impactado por novas regras: ${setor}`}
                 >
                   {setor}
                 </span>
@@ -296,11 +358,18 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border font-mono ${
-              atingeQuorum
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                : 'bg-rose-50 text-rose-800 border-rose-300'
-            }`}>
+            <span
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg border font-mono cursor-help ${
+                atingeQuorum
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-rose-50 text-rose-800 border-rose-300'
+              }`}
+              title={
+                atingeQuorum
+                  ? `Situação: A matéria atinge e supera o quórum mínimo necessário por uma margem de +${margemQuorum} votos favoráveis.`
+                  : `Situação: Projeção insuficiente. Faltam ${Math.abs(margemQuorum)} votos para atingir o quórum constitucional de aprovação.`
+              }
+            >
               {atingeQuorum
                 ? `Quórum Atingido (+${margemQuorum} votos)`
                 : `Abaixo do Quórum (${margemQuorum} votos)`}
@@ -309,7 +378,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
         </div>
 
         {/* Voting Gauge Visual */}
-        <div className="space-y-2">
+        <div
+          className="space-y-2 cursor-help"
+          title={`Simulação de Placar: ${placarSimulado.votosFavoraveis} votos favoráveis frente ao quórum de ${proposicaoSelecionada.quorum.minimoVotos} votos (${proposicaoSelecionada.quorum.tipo}) sobre ${proposicaoSelecionada.quorum.totalMembros} membros da Casa.`}
+        >
           <div className="flex justify-between items-end text-xs">
             <div>
               <span className="text-slate-500 font-medium">Votos Favoráveis Projetados: </span>
@@ -336,6 +408,7 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               style={{
                 width: `${Math.min(100, (placarSimulado.votosFavoraveis / proposicaoSelecionada.quorum.totalMembros) * 100)}%`,
               }}
+              title={`Barra de votos favoráveis: ${placarSimulado.votosFavoraveis} votos`}
             />
 
             {/* Quorum cutoff indicator line */}
@@ -344,7 +417,7 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               style={{
                 left: `${(proposicaoSelecionada.quorum.minimoVotos / proposicaoSelecionada.quorum.totalMembros) * 100}%`,
               }}
-              title={`Linha de Quórum: ${proposicaoSelecionada.quorum.minimoVotos} votos`}
+              title={`Linha de Quórum Obrigatório: ${proposicaoSelecionada.quorum.minimoVotos} votos (${((proposicaoSelecionada.quorum.minimoVotos / proposicaoSelecionada.quorum.totalMembros) * 100).toFixed(0)}% do colegiado)`}
             />
           </div>
 
@@ -359,9 +432,12 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
 
         {/* Interactive Sliders */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-slate-50 rounded-lg border border-slate-200/80">
-          <div className="space-y-2">
+          <div
+            className="space-y-2"
+            title="Ajuste a estimativa percentual de apoio dos partidos de centro (Centrão) ao relatório governista para recalcular o placar."
+          >
             <div className="flex justify-between text-xs">
-              <label htmlFor="centrao-slider" className="font-medium text-slate-800">
+              <label htmlFor="centrao-slider" className="font-medium text-slate-800 cursor-pointer">
                 Adesão da Bancada do Centrão ao Texto:
               </label>
               <span className="font-mono font-bold text-emerald-700">{adesaoCentrao}%</span>
@@ -374,6 +450,7 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               value={adesaoCentrao}
               onChange={(e) => setAdesaoCentrao(Number(e.target.value))}
               className="w-full accent-emerald-600 cursor-pointer"
+              title="Mova o controle deslizante para simular entre 0% (rejeição total) e 100% (apoio unânime) da bancada do Centrão."
             />
             <div className="text-[11px] text-slate-500 flex justify-between">
               <span>0% (Resistência total)</span>
@@ -381,9 +458,12 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div
+            className="space-y-2"
+            title="Ajuste a taxa de dissidência ou liberação de voto na oposição para simular apoios adicionais ao texto."
+          >
             <div className="flex justify-between text-xs">
-              <label htmlFor="oposicao-slider" className="font-medium text-slate-800">
+              <label htmlFor="oposicao-slider" className="font-medium text-slate-800 cursor-pointer">
                 Adesão / Dissidência na Bancada de Oposição:
               </label>
               <span className="font-mono font-bold text-slate-700">{adesaoOposicao}%</span>
@@ -396,6 +476,7 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
               value={adesaoOposicao}
               onChange={(e) => setAdesaoOposicao(Number(e.target.value))}
               className="w-full accent-slate-600 cursor-pointer"
+              title="Mova o controle deslizante para simular votos favoráveis vindos de parlamentares de oposição."
             />
             <div className="text-[11px] text-slate-500 flex justify-between">
               <span>0% (Fechamento de questão contra)</span>
@@ -406,7 +487,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
 
         {/* Breakdown of Seats by Alliance */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
+          <div
+            className="p-3 bg-white rounded-lg border border-slate-200 cursor-help"
+            title="Total de parlamentares integrantes dos partidos da base governista oficial na Casa."
+          >
             <div className="text-slate-500">Base Governista</div>
             <div className="text-lg font-mono font-bold text-emerald-700">
               {proposicaoSelecionada.bancadas.governista} votos
@@ -414,7 +498,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
             <div className="text-[11px] text-slate-400">Fidelidade alta</div>
           </div>
 
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
+          <div
+            className="p-3 bg-white rounded-lg border border-slate-200 cursor-help"
+            title={`Bancada do Centrão (${proposicaoSelecionada.bancadas.centrao} parlamentares). Com adesão simulada de ${adesaoCentrao}%, projeta-se ${Math.round((proposicaoSelecionada.bancadas.centrao * adesaoCentrao) / 100)} votos favoráveis.`}
+          >
             <div className="text-slate-500">Centrão (Em negociação)</div>
             <div className="text-lg font-mono font-bold text-amber-700">
               {proposicaoSelecionada.bancadas.centrao} parlamentares
@@ -424,7 +511,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
             </div>
           </div>
 
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
+          <div
+            className="p-3 bg-white rounded-lg border border-slate-200 cursor-help"
+            title={`Bancada de Oposição (${proposicaoSelecionada.bancadas.oposicao} parlamentares). Com dissidência de ${adesaoOposicao}%, projeta-se ${Math.round((proposicaoSelecionada.bancadas.oposicao * adesaoOposicao) / 100)} votos favoráveis.`}
+          >
             <div className="text-slate-500">Oposição</div>
             <div className="text-lg font-mono font-bold text-slate-800">
               {proposicaoSelecionada.bancadas.oposicao} parlamentares
@@ -434,7 +524,10 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
             </div>
           </div>
 
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
+          <div
+            className="p-3 bg-white rounded-lg border border-slate-200 cursor-help"
+            title="Probabilidade matemática de aprovação estimada a partir do quórum regimental, da margem de votos projetada e do regime de urgência da proposta."
+          >
             <div className="text-slate-500">Probabilidade de Aprovação</div>
             <div className="text-lg font-mono font-bold text-slate-900">
               {probabilidadeSimulada}%
@@ -468,15 +561,109 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => setPainelChaveAberto(!painelChaveAberto)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                chaveUsuario
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              }`}
+              title="Configurar chave pessoal de IA (armazenada com segurança no seu navegador via localStorage para evitar que expire ou tenha que reconfigurar)."
+            >
+              <KeyRound className="w-3.5 h-3.5 text-emerald-700" />
+              <span>{chaveUsuario ? 'Chave IA Ativa' : 'Configurar Chave IA'}</span>
+            </button>
+
+            <button
               onClick={executarAnaliseIa}
               disabled={carregandoIa}
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+              title="Dispara a geração do parecer de inteligência legislativa no servidor utilizando o modelo Google Gemini 3.8 Flash."
             >
               <RefreshCw className={`w-3.5 h-3.5 ${carregandoIa ? 'animate-spin' : ''}`} />
               <span>{carregandoIa ? 'Processando com Gemini...' : 'Gerar Análise IA Agora'}</span>
             </button>
           </div>
         </div>
+
+        {/* Collapsible User Gemini API Key Form with localStorage Persistence */}
+        {painelChaveAberto && (
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-emerald-700" />
+                <h4 className="text-xs font-bold text-slate-900">
+                  Configuração de Chave de IA (Armazenamento Local)
+                </h4>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                {chaveUsuario ? (
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Chave salva no localStorage
+                  </span>
+                ) : (
+                  'Utilizando chave padrão do servidor'
+                )}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Você pode utilizar sua própria chave de API do Google Gemini. Ela é salva com segurança no{' '}
+              <strong>localStorage</strong> do seu navegador e reconhecida automaticamente toda vez que recarregar a página.
+            </p>
+
+            <form onSubmit={salvarChaveNoStorage} className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={mostrarChaveTexto ? 'text' : 'password'}
+                    placeholder="Cole sua chave Gemini (ex: AQ.Ab8... ou AIzaSy...)"
+                    value={chaveInput}
+                    onChange={(e) => setChaveInput(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-900"
+                    title="Insira sua chave de API pessoal do Google Gemini"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarChaveTexto(!mostrarChaveTexto)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title={mostrarChaveTexto ? 'Ocultar caracteres da chave' : 'Exibir chave digitada'}
+                  >
+                    {mostrarChaveTexto ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs"
+                  title="Salva a chave no localStorage do seu navegador"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Gravar Chave</span>
+                </button>
+
+                {chaveUsuario && (
+                  <button
+                    type="button"
+                    onClick={removerChaveDoStorage}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer transition-colors"
+                    title="Remove a chave gravada no localStorage"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remover</span>
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {msgChave && (
+              <div className="text-[11px] text-emerald-800 bg-emerald-50 p-2 rounded border border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{msgChave}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {erroIa && (
           <div className="text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-200 flex items-start gap-2">

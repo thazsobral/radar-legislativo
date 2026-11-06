@@ -120,7 +120,10 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
       {/* Top Banner / Metrics Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        <div
+          className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
+          title="Total de matérias legislativas monitoradas ativamente pelo robô no Congresso Nacional (Câmara dos Deputados e Senado Federal)."
+        >
           <div className="text-xs text-slate-500 font-medium">Matérias Monitoradas</div>
           <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
             {proposicoes.length}
@@ -130,7 +133,10 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        <div
+          className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
+          title="Proposições prioritárias pautadas para deliberação na sessão plenária de hoje na Ordem do Dia."
+        >
           <div className="text-xs text-slate-500 font-medium">Votações Previstas Hoje</div>
           <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
             {materiasHoje}
@@ -140,7 +146,10 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        <div
+          className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
+          title="Propostas de Emenda à Constituição (PEC): exigem quórum qualificado de 3/5 dos parlamentares (308 na Câmara ou 49 no Senado) aprovados em 2 turnos."
+        >
           <div className="text-xs text-slate-500 font-medium">PEC (3/5 de Quórum)</div>
           <div className="text-2xl font-bold font-mono text-amber-600 mt-1">
             {pecsNaPauta}
@@ -150,7 +159,10 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        <div
+          className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
+          title="Soma estimada do impacto fiscal das matérias sob análise, cobrindo potencial de arrecadação, renúncia ou despesas públicas."
+        >
           <div className="text-xs text-slate-500 font-medium">Impacto Orçamentário Rastreado</div>
           <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
             R$ {totalImpactoFiscal.toFixed(1)} bi
@@ -297,14 +309,28 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                 key={proposta.id}
                 className="bg-white rounded-xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all p-5"
               >
-                {/* Header line with clean unboxed metadata adhering to zero-pill rules */}
+                {/* Header line with clean unboxed metadata and rich tooltips */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="font-mono font-bold text-base text-slate-950">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                    <span
+                      className="font-mono font-bold text-base text-slate-950 cursor-help hover:text-emerald-700 transition-colors"
+                      title={`Código oficial da matéria legislativa: ${proposta.codigo} (${proposta.siglaTipo} nº ${proposta.numero} do ano ${proposta.ano}). Identificador único nos sistemas oficiais do Congresso.`}
+                      tabIndex={0}
+                    >
                       {proposta.codigo}
                     </span>
                     <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="font-medium text-slate-800">
+                    <span
+                      className="font-medium text-slate-800 cursor-help"
+                      title={`Casa Legislativa: ${
+                        proposta.casa === 'CAMARA'
+                          ? 'Câmara dos Deputados (deliberação de 513 parlamentares federais)'
+                          : proposta.casa === 'SENADO'
+                          ? 'Senado Federal (deliberação de 81 senadores da República)'
+                          : 'Congresso Nacional (sessão conjunta de deputados e senadores)'
+                      }`}
+                      tabIndex={0}
+                    >
                       {proposta.casa === 'CAMARA'
                         ? 'Câmara dos Deputados'
                         : proposta.casa === 'SENADO'
@@ -312,16 +338,30 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                         : 'Congresso Nacional'}
                     </span>
                     <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span className="text-slate-500">{proposta.orgaoAtual}</span>
+                    <span
+                      className="text-slate-500 cursor-help truncate max-w-xs"
+                      title={`Local de votação atual do texto: ${proposta.orgaoAtual}. Colegiado ou plenário regimental onde a matéria está sendo discutida e votada neste estágio.`}
+                      tabIndex={0}
+                    >
+                      {proposta.orgaoAtual}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-3 text-xs">
                     {isUrgente && (
-                      <span className="flex items-center gap-1 text-amber-700 font-semibold">
+                      <span
+                        className="flex items-center gap-1 text-amber-700 font-semibold cursor-help bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
+                        title={`Nível de urgência da votação: Regime de Urgência Ativo. Dispensa certas formalidades e prazos de instrução em comissões temáticas para votação imediata no Plenário. Prioridade do governo: ${proposta.prioridadeGoverno || 'Média'}.`}
+                        tabIndex={0}
+                      >
                         <Flame className="w-3.5 h-3.5 text-amber-600" /> Urgência
                       </span>
                     )}
-                    <span className="flex items-center gap-1 text-slate-600">
+                    <span
+                      className="flex items-center gap-1 text-slate-600 cursor-help"
+                      title={`Data e momento previsto para a votação: ${proposta.dataPrevistaVotacao}. Indica se o texto já está pautado para a Ordem do Dia da sessão deliberativa atual ou se a pauta é iminente.`}
+                      tabIndex={0}
+                    >
                       <Calendar className="w-3.5 h-3.5 text-slate-400" /> {proposta.dataPrevistaVotacao}
                     </span>
                   </div>
@@ -329,10 +369,18 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
                 {/* Main Content Title and Plain Citizen Summary */}
                 <div className="space-y-2 mb-4">
-                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                  <h3
+                    className="text-base font-bold text-slate-900 leading-snug cursor-help hover:text-emerald-900 transition-colors"
+                    title={`Título do texto em aprovação: ${proposta.tituloCurto}\n\nEmenta Oficial: ${proposta.ementa}`}
+                    tabIndex={0}
+                  >
                     {proposta.tituloCurto}
                   </h3>
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed">
+                  <div
+                    className="bg-slate-50 p-3 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed cursor-help"
+                    title="Resumo Cidadão: explicação em linguagem direta e acessível sobre como essa lei impacta os direitos, o bolso e a rotina da população brasileira."
+                    tabIndex={0}
+                  >
                     <div className="flex items-center gap-1 text-emerald-800 font-semibold mb-1">
                       <Sparkles className="w-3 h-3 text-emerald-600" /> Resumo Cidadão (Sem Juridiquês):
                     </div>
@@ -343,7 +391,11 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                 {/* Metrics and Parliamentary Forecast Strip */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50/80 rounded-lg text-xs border border-slate-100 mb-4">
                   {/* Quorum requirement */}
-                  <div>
+                  <div
+                    className="cursor-help"
+                    title={`Quórum constitucional de votação: exige no mínimo ${proposta.quorum.minimoVotos} votos favoráveis (${proposta.quorum.tipo}) de um total de ${proposta.quorum.totalMembros} membros. Regra: ${proposta.quorum.descricaoRegra}.`}
+                    tabIndex={0}
+                  >
                     <div className="text-slate-500 font-medium flex items-center gap-1">
                       <Scale className="w-3 h-3 text-slate-400" /> Quórum Requerido
                     </div>
@@ -356,7 +408,11 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                   </div>
 
                   {/* Rapporteur */}
-                  <div>
+                  <div
+                    className="cursor-help"
+                    title={`Relatoria do texto: parlamentar ${proposta.relator.nome} (${proposta.relator.partido}/${proposta.relator.uf}) designado para analisar o projeto e emitir o parecer legislativo. Parecer atual: ${proposta.relator.parecer || 'Aguardando parecer oficial'}.`}
+                    tabIndex={0}
+                  >
                     <div className="text-slate-500 font-medium flex items-center gap-1">
                       <UserCheck className="w-3 h-3 text-slate-400" /> Relatoria
                     </div>
@@ -369,7 +425,11 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                   </div>
 
                   {/* Fiscal impact */}
-                  <div>
+                  <div
+                    className="cursor-help"
+                    title={`Impacto fiscal e orçamentário: estimado em ${formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}. Classificação: ${proposta.impacto.fiscal.tipo}. Nível de risco fiscal: ${proposta.impacto.fiscal.nivelRisco}. Diagnóstico: ${proposta.impacto.fiscal.descricao}`}
+                    tabIndex={0}
+                  >
                     <div className="text-slate-500 font-medium flex items-center gap-1">
                       <DollarSign className="w-3 h-3 text-slate-400" /> Impacto Fiscal Estimado
                     </div>
@@ -383,7 +443,11 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                 </div>
 
                 {/* Probability Bar */}
-                <div className="space-y-1 mb-4">
+                <div
+                  className="space-y-1 mb-4 cursor-help"
+                  title={`Termômetro de aprovação parlamentar: probabilidade estimada em ${proposta.probabilidadeAprovacao}%. Cálculo baseado no alinhamento das bancadas partidárias (Base do Governo: ${proposta.bancadas.governista}, Centrão: ${proposta.bancadas.centrao}, Oposição: ${proposta.bancadas.oposicao}) frente ao quórum mínimo de ${proposta.quorum.minimoVotos} votos.`}
+                  tabIndex={0}
+                >
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-600 font-medium">Termômetro de Aprovação:</span>
                     <span className={`font-mono font-bold ${probCor}`}>
@@ -400,9 +464,14 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
                 {/* Bottom Actions and Tags */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
                     {proposta.tags.slice(0, 3).map((t, idx) => (
-                      <span key={t}>
+                      <span
+                        key={t}
+                        className="cursor-help"
+                        title={`Tema e classificação da matéria legislativa: ${t}`}
+                        tabIndex={0}
+                      >
                         {idx > 0 && <span className="mr-2 text-slate-300">·</span>}
                         {t}
                       </span>
@@ -417,22 +486,26 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
-                      title="Compartilhar matéria no WhatsApp com 1 clique"
+                      title="Compartilhar resumo cidadão e status de votação no WhatsApp com 1 clique"
                     >
                       <Share2 className="w-3.5 h-3.5 text-emerald-700" />
                       <span>WhatsApp</span>
                     </a>
 
                     <button
+                      type="button"
                       onClick={() => onSelecionarParaDivulgacao(proposta)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors cursor-pointer"
+                      title="Gerar card visual formatado para redes sociais (Instagram, LinkedIn, X/Twitter e WhatsApp)"
                     >
                       <span>Gerar Card</span>
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => onSelecionarParaImpacto(proposta)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white transition-colors cursor-pointer shadow-xs"
+                      title="Acessar o painel analítico com simulador interativo de bancadas e parecer com Inteligência Artificial"
                     >
                       <span>Análise de Impacto</span>
                       <ChevronRight className="w-3.5 h-3.5" />

@@ -347,19 +347,7 @@ function gerarParecerFallback(proposicao: ProposicaoLegislativa) {
 }
 
 function resolveServerApiKey(req?: express.Request): string {
-  // Procura nas variáveis de ambiente do servidor primeiro
-  const envKey =
-    (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'
-      ? process.env.GEMINI_API_KEY
-      : '') ||
-    (process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY &&
-    process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'
-      ? process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY
-      : '');
-
-  if (envKey) return envKey.trim();
-
-  // Fallback para cabeçalhos ou payload
+  // 1. Se a requisição do usuário trouxer uma chave customizada (via header ou body)
   if (req) {
     const headerKey = req.headers['x-gemini-api-key'] as string;
     const authHeader = req.headers.authorization ? req.headers.authorization.replace(/^Bearer\s+/i, '') : '';
@@ -369,6 +357,18 @@ function resolveServerApiKey(req?: express.Request): string {
       return candidate;
     }
   }
+
+  // 2. Chave de ambiente configurada no servidor (.env ou segredos do sistema)
+  const envKey =
+    (process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY &&
+    process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'
+      ? process.env.RADAR_LEGISLATIVO_GEMINI_API_KEY
+      : '') ||
+    (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'
+      ? process.env.GEMINI_API_KEY
+      : '');
+
+  if (envKey) return envKey.trim();
 
   return '';
 }

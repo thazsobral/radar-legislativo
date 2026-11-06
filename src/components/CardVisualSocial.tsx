@@ -214,16 +214,20 @@ export const CardVisualSocial: React.FC<CardVisualSocialProps> = ({ proposicao }
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={copiarImagem}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer transition-colors"
+            title="Copiar imagem do card em alta resolução (1200x630) diretamente para a área de transferência"
           >
             {copiado ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copiado ? 'Copiado!' : 'Copiar Card'}</span>
           </button>
 
           <button
+            type="button"
             onClick={baixarImagem}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs"
+            title="Baixar arquivo de imagem PNG (1200x630 pixels) formatado com dados oficiais da proposição"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Baixar Imagem PNG (1200x630)</span>
@@ -232,7 +236,10 @@ export const CardVisualSocial: React.FC<CardVisualSocialProps> = ({ proposicao }
       </div>
 
       {/* Canvas preview responsive wrapper */}
-      <div className="overflow-hidden rounded-lg border border-slate-300 bg-slate-950 flex items-center justify-center p-2">
+      <div
+        className="overflow-hidden rounded-lg border border-slate-300 bg-slate-950 flex items-center justify-center p-2 cursor-pointer"
+        title="Prévia do card gerado automaticamente com código da lei, título do texto, resumo cidadão, quórum mínimo e termômetro de aprovação."
+      >
         <canvas
           ref={canvasRef}
           className="w-full h-auto max-h-[380px] object-contain rounded"

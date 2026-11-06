@@ -148,6 +148,7 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
                 if (found) onSelecionarProposicao(found);
               }}
               className="text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              title="Selecione a matéria legislativa que deseja formatar e divulgar nos canais de comunicação"
             >
               {proposicoes.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -157,9 +158,11 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
             </select>
 
             <button
+              type="button"
               onClick={dispararAlertaGeral}
               disabled={disparando}
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors disabled:opacity-50 shadow-xs"
+              title="Enviar alerta e notificação em tempo real para os canais configurados (WhatsApp, Telegram, X e Webhooks)"
             >
               <Send className={`w-3.5 h-3.5 ${disparando ? 'animate-bounce' : ''}`} />
               <span>{disparando ? 'Disparando...' : 'Disparar Alerta Geral'}</span>
@@ -188,8 +191,10 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
               </span>
             )}
             <button
+              type="button"
               onClick={ativarNotificacoesBrowser}
               className="px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium cursor-pointer transition-colors whitespace-nowrap"
+              title="Solicitar permissão de notificações do navegador para receber pop-ups em tempo real"
             >
               Ativar Notificações
             </button>
@@ -205,20 +210,22 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
               {(
                 [
-                  { id: 'WHATSAPP', label: 'WhatsApp' },
-                  { id: 'TELEGRAM', label: 'Telegram' },
-                  { id: 'TWITTER', label: 'Twitter / X' },
-                  { id: 'WEBHOOK', label: 'Webhook (JSON)' },
+                  { id: 'WHATSAPP', label: 'WhatsApp', desc: 'Formato adaptado para WhatsApp com emojis e negrito (*texto*)' },
+                  { id: 'TELEGRAM', label: 'Telegram', desc: 'Formato com marcação limpa e resumo executivo para Telegram' },
+                  { id: 'TWITTER', label: 'Twitter / X', desc: 'Formato curto e conciso com hashtags para X (Twitter)' },
+                  { id: 'WEBHOOK', label: 'Webhook (JSON)', desc: 'Payload JSON puro para integração com APIs e automações' },
                 ] as const
               ).map((canal) => (
                 <button
                   key={canal.id}
+                  type="button"
                   onClick={() => setCanalAtivo(canal.id as CanalDivulgacao)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                     canalAtivo === canal.id
-                      ? 'bg-white text-slate-900 shadow-xs'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
+                  title={canal.desc}
                 >
                   {canal.label}
                 </button>
@@ -228,7 +235,10 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
 
           {/* Formatted Message Preview Box */}
           <div className="relative">
-            <pre className="w-full p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800 max-h-72">
+            <pre
+              className="w-full p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-lg overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800 max-h-72"
+              title="Pré-visualização da mensagem pronta para envio no canal selecionado"
+            >
               {canalAtivo === 'WEBHOOK'
                 ? JSON.stringify(
                     {
@@ -253,8 +263,10 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
             </pre>
 
             <button
+              type="button"
               onClick={copiarTexto}
               className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer transition-colors shadow-xs"
+              title="Copiar texto da mensagem formatada para a área de transferência"
             >
               {copiado ? (
                 <>

@@ -86,14 +86,25 @@ export async function obterAnaliseLegislativa(
       'Content-Type': 'application/json',
     };
 
-    if (customApiKey && customApiKey.trim()) {
-      headers['x-gemini-api-key'] = customApiKey.trim();
+    const effectiveKey =
+      (customApiKey && customApiKey.trim()) ||
+      (typeof window !== 'undefined'
+        ? localStorage.getItem('RADAR_LEGISLATIVO_GEMINI_API_KEY') ||
+          localStorage.getItem('gemini_api_key') ||
+          ''
+        : '');
+
+    if (effectiveKey && effectiveKey.trim()) {
+      headers['x-gemini-api-key'] = effectiveKey.trim();
     }
 
     const response = await fetch('/api/ai-impact', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ proposicao }),
+      body: JSON.stringify({
+        proposicao,
+        userApiKey: effectiveKey ? effectiveKey.trim() : undefined,
+      }),
     });
 
     if (response.ok) {
