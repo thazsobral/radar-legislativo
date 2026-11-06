@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Activity,
   DollarSign,
   Users,
   ShieldCheck,
-  TrendingUp,
   AlertCircle,
   CheckCircle2,
   Sparkles,
@@ -13,15 +11,7 @@ import {
   Building2,
   Leaf,
   Scale,
-  Sliders,
   RefreshCw,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Trash2,
-  Check,
-  HelpCircle,
-  Lock,
 } from 'lucide-react';
 import { ProposicaoLegislativa } from '../types/legislative';
 import {
@@ -29,8 +19,7 @@ import {
   estimarProbabilidadeAprovacao,
   formatarValorImpacto,
 } from '../utils/parliamentaryMath';
-
-const STORAGE_KEY_GEMINI = 'RADAR_LEGISLATIVO_GEMINI_API_KEY';
+import { obterAnaliseLegislativa } from '../utils/aiAnalysisClient';
 
 interface DashboardImpactoProps {
   proposicoes: ProposicaoLegislativa[];
@@ -48,56 +37,6 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
   // Simulator state: interactive alliance sliders
   const [adesaoCentrao, setAdesaoCentrao] = useState<number>(70);
   const [adesaoOposicao, setAdesaoOposicao] = useState<number>(5);
-
-  // User Gemini API Key state with localStorage persistence
-  const [userApiKey, setUserApiKey] = useState<string>('');
-  const [inputApiKey, setInputApiKey] = useState<string>('');
-  const [mostrarFormChave, setMostrarFormChave] = useState<boolean>(false);
-  const [mostrarSenha, setMostrarSenha] = useState<boolean>(false);
-  const [feedbackChave, setFeedbackChave] = useState<string | null>(null);
-
-  // Load API key from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedKey = localStorage.getItem(STORAGE_KEY_GEMINI);
-      if (savedKey && savedKey.trim()) {
-        const cleanKey = savedKey.trim();
-        setUserApiKey(cleanKey);
-        setInputApiKey(cleanKey);
-      }
-    } catch (_err) {
-      // localStorage may fail in restricted sandbox environments
-    }
-  }, []);
-
-  const handleSalvarChave = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanKey = inputApiKey.trim();
-    if (!cleanKey) {
-      setFeedbackChave('Por favor, informe uma chave válida.');
-      return;
-    }
-    try {
-      localStorage.setItem(STORAGE_KEY_GEMINI, cleanKey);
-      setUserApiKey(cleanKey);
-      setMostrarFormChave(false);
-      setFeedbackChave('Chave salva no navegador com sucesso! Ficará salva automaticamente.');
-      setTimeout(() => setFeedbackChave(null), 4000);
-    } catch (_err) {
-      setFeedbackChave('Erro ao salvar no armazenamento local do navegador.');
-    }
-  };
-
-  const handleRemoverChave = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY_GEMINI);
-    } catch (_err) {}
-    setUserApiKey('');
-    setInputApiKey('');
-    setMostrarFormChave(false);
-    setFeedbackChave('Chave removida. O sistema usará o parecer heurístico padrão.');
-    setTimeout(() => setFeedbackChave(null), 4000);
-  };
 
   // AI Analysis state
   const [analiseIa, setAnaliseIa] = useState<{
@@ -136,48 +75,29 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
   const atingeQuorum = placarSimulado.votosFavoraveis >= proposicaoSelecionada.quorum.minimoVotos;
   const margemQuorum = placarSimulado.votosFavoraveis - proposicaoSelecionada.quorum.minimoVotos;
 
-  // Handler to call Gemini AI analysis endpoint using user's stored key
+  // Handler to call Gemini AI analysis endpoint on the server
   const executarAnaliseIa = async () => {
     setCarregandoIa(true);
     setErroIa(null);
     try {
-      const chaveParaEnvio = userApiKey.trim();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (chaveParaEnvio) {
-        headers['x-gemini-api-key'] = chaveParaEnvio;
-      }
-
-      const resp = await fetch('/api/ai-impact', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          proposicao: proposicaoSelecionada,
-          userApiKey: chaveParaEnvio || undefined,
-        }),
-      });
-
-      const data = await resp.json();
-      if (resp.ok && data.sucesso && data.analiseIa) {
-        setAnaliseIa(data.analiseIa);
-        setFonteAnalise(data.fonte || (chaveParaEnvio ? 'GEMINI_AI_USUARIO' : 'HEURISTICA_LEGISLATIVA'));
+      const resultado = await obterAnaliseLegislativa(proposicaoSelecionada);
+      if (resultado.sucesso && resultado.analiseIa) {
+        setAnaliseIa(resultado.analiseIa);
+        setFonteAnalise(resultado.fonte);
+        if (resultado.aviso) {
+          setErroIa(resultado.aviso);
+        }
       } else {
-        setErroIa(data.erro || 'Não foi possível gerar análise com IA no momento.');
+        setAnaliseIa(resultado.analiseIa || null);
+        setFonteAnalise(resultado.fonte);
+        setErroIa(resultado.erro || 'Não foi possível gerar análise com IA no momento.');
       }
-    } catch (_err) {
-      setErroIa('Erro na comunicação com o servidor de IA.');
+    } catch (err: any) {
+      setErroIa(err?.message || 'Erro ao processar análise legislativa.');
     } finally {
       setCarregandoIa(false);
     }
   };
-
-  // Helper to mask key for privacy
-  const chaveMascarada = useMemo(() => {
-    if (!userApiKey) return '';
-    if (userApiKey.length <= 8) return '••••••••';
-    return `${userApiKey.slice(0, 6)}••••••••${userApiKey.slice(-4)}`;
-  }, [userApiKey]);
 
   return (
     <div className="space-y-6">
@@ -536,192 +456,33 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
                 <h3 className="text-base font-bold text-slate-900">
                   Parecer Inteligente & Explicador Cidadão com IA
                 </h3>
-                {userApiKey ? (
-                  <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Chave Ativa
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
-                    Modo Heurístico
-                  </span>
-                )}
+                <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-emerald-600" /> Google Gemini 3.8 Flash (Servidor)
+                </span>
               </div>
               <p className="text-xs text-slate-500">
-                Desmistificação de termos técnicos, análise de riscos políticos e mapeamento de interesses.
+                Desmistificação de termos técnicos, análise de riscos políticos e mapeamento de interesses processados no servidor.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {!mostrarFormChave && (
-              <button
-                type="button"
-                onClick={() => setMostrarFormChave(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
-                title="Configurar ou alterar sua chave Gemini API no navegador"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{userApiKey ? 'Gerenciar Chave' : 'Configurar Chave IA'}</span>
-              </button>
-            )}
-
             <button
               onClick={executarAnaliseIa}
               disabled={carregandoIa}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white cursor-pointer transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${carregandoIa ? 'animate-spin' : ''}`} />
-              <span>{carregandoIa ? 'Processando Análise...' : 'Gerar Análise IA Agora'}</span>
+              <span>{carregandoIa ? 'Processando com Gemini...' : 'Gerar Análise IA Agora'}</span>
             </button>
           </div>
         </div>
 
-        {/* Feedback message for key actions */}
-        {feedbackChave && (
-          <div className="text-xs text-emerald-800 bg-emerald-50 p-3 rounded-lg border border-emerald-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>{feedbackChave}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFeedbackChave(null)}
-              className="text-slate-400 hover:text-slate-600 text-xs ml-2 cursor-pointer"
-            >
-              Fechar
-            </button>
-          </div>
-        )}
-
-        {/* User API Key Configuration Form / Status Bar */}
-        {mostrarFormChave ? (
-          <form
-            onSubmit={handleSalvarChave}
-            className="p-4 bg-slate-50 rounded-lg border border-emerald-200/90 space-y-3"
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-0.5">
-                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <KeyRound className="w-4 h-4 text-emerald-600" />
-                  Configurar Chave de IA do Usuário (Google Gemini API)
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Sua chave é armazenada de forma segura no <strong>LocalStorage do seu navegador</strong>. Ela é reconhecida automaticamente sempre que você recarregar a página sem necessidade de redigitar.
-                </p>
-              </div>
-              {userApiKey && (
-                <button
-                  type="button"
-                  onClick={() => setMostrarFormChave(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <input
-                  type={mostrarSenha ? 'text' : 'password'}
-                  value={inputApiKey}
-                  onChange={(e) => setInputApiKey(e.target.value)}
-                  placeholder="Cole sua API Key do Google AI Studio (ex: AIzaSy...)"
-                  className="w-full text-xs font-mono bg-white border border-slate-300 rounded-lg pl-3 pr-10 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMostrarSenha(!mostrarSenha)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  title={mostrarSenha ? 'Ocultar chave' : 'Mostrar chave'}
-                >
-                  {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Salvar no Navegador</span>
-                </button>
-
-                {userApiKey && (
-                  <button
-                    type="button"
-                    onClick={handleRemoverChave}
-                    className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-lg text-rose-700 hover:bg-rose-50 border border-rose-200 cursor-pointer transition-colors"
-                    title="Remover chave salva deste navegador"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Remover</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/80 gap-1">
-              <span className="flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-400" />
-                A chave é gravada estritamente no armazenamento local do seu cliente.
-              </span>
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-700 hover:underline inline-flex items-center gap-1 font-medium"
-              >
-                Gerar chave gratuita no Google AI Studio <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          </form>
-        ) : (
-          userApiKey && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-emerald-50/50 rounded-lg border border-emerald-200/70 text-xs gap-2">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-emerald-700 shrink-0" />
-                <div>
-                  <span className="font-semibold text-emerald-950">Chave Gemini Configurada: </span>
-                  <span className="font-mono text-emerald-800 bg-white/80 px-2 py-0.5 rounded border border-emerald-200">
-                    {chaveMascarada}
-                  </span>
-                  <span className="text-[11px] text-emerald-700 ml-2">
-                    (Salva no LocalStorage do seu navegador)
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setMostrarFormChave(true)}
-                  className="text-xs font-medium text-emerald-800 hover:underline cursor-pointer"
-                >
-                  Alterar
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={handleRemoverChave}
-                  className="text-xs font-medium text-rose-700 hover:underline cursor-pointer flex items-center gap-1"
-                >
-                  <Trash2 className="w-3 h-3" /> Remover
-                </button>
-              </div>
-            </div>
-          )
-        )}
-
         {erroIa && (
-          <div className="text-xs text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="space-y-1">
+          <div className="text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+            <div className="space-y-0.5">
               <span className="font-semibold">{erroIa}</span>
-              <p className="text-[11px] text-rose-600">
-                Dica: Verifique se sua chave da API Gemini é válida em "Gerenciar Chave" ou utilize o parecer heurístico do robô.
-              </p>
             </div>
           </div>
         )}
@@ -730,13 +491,13 @@ export const DashboardImpacto: React.FC<DashboardImpactoProps> = ({
           <div className="space-y-4 text-xs pt-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-slate-500 font-medium">Resultado do Parecer:</span>
-              {fonteAnalise === 'GEMINI_AI_USUARIO' ? (
+              {fonteAnalise === 'GEMINI_AI_SERVER' ? (
                 <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Processado com Gemini 3.8 Flash (Chave do Usuário)
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Processado via Google Gemini 3.8 Flash (Servidor)
                 </span>
               ) : (
                 <span className="text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-500" /> Parecer Heurístico Legislativo
+                  <ShieldCheck className="w-3.5 h-3.5 text-slate-500" /> Parecer Heurístico Legislativo Integrado
                 </span>
               )}
             </div>

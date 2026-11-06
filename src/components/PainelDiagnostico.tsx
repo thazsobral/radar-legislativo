@@ -13,6 +13,7 @@ import {
   Server,
   Layers,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 
 interface PainelDiagnosticoProps {
@@ -34,6 +35,7 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
       roboVarredura: { status: string; proposicoesRastreadas: number; alertasDisparados: number };
       camaraDosDeputados: { online: boolean; latenciaMs: number; detalhes: string };
       senadoFederal: { online: boolean; latenciaMs: number; detalhes: string };
+      inteligenciaArtificialGemini?: { status: string; modelo: string; processamento: string; chaveConfigurada: boolean };
       sistemaAlertas: { inAppAudio: string; bannerVisual: string; webPush: string; canaisTransmitidos: string[] };
     };
   } | null>(null);
@@ -51,6 +53,7 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
           roboVarredura: { status: 'OPERACIONAL', proposicoesRastreadas: 7, alertasDisparados: 3 },
           camaraDosDeputados: { online: true, latenciaMs: 85, detalhes: 'Conectado aos Dados Abertos oficiais' },
           senadoFederal: { online: true, latenciaMs: 60, detalhes: 'Operacional' },
+          inteligenciaArtificialGemini: { status: 'OPERACIONAL', modelo: 'gemini-3.8-flash', processamento: 'SERVIDOR', chaveConfigurada: true },
           sistemaAlertas: {
             inAppAudio: 'ATIVO',
             bannerVisual: 'ATIVO',
@@ -106,12 +109,12 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
         </div>
 
         {/* Status dos Serviços Oficiais e Conexões */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           {/* API Câmara */}
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Server className="w-4 h-4 text-emerald-600" /> API Câmara dos Deputados
+                <Server className="w-4 h-4 text-emerald-600" /> Câmara dos Deputados
               </span>
               <span className="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 ONLINE
@@ -129,7 +132,7 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Server className="w-4 h-4 text-emerald-600" /> API Senado Federal
+                <Server className="w-4 h-4 text-emerald-600" /> Senado Federal
               </span>
               <span className="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 ONLINE
@@ -140,6 +143,24 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
             </div>
             <div className="text-[11px] font-mono text-slate-600">
               Latência: {dadosDiagnostico?.servicos?.senadoFederal?.latenciaMs || 60} ms
+            </div>
+          </div>
+
+          {/* Gemini AI Server */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600" /> IA Gemini 3.8 Flash
+              </span>
+              <span className="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                SERVIDOR
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Parecer legislativo & explicador cidadão executado no backend
+            </div>
+            <div className="text-[11px] font-mono text-emerald-700 font-semibold">
+              Modelo: gemini-3.8-flash
             </div>
           </div>
 

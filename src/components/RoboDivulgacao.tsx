@@ -49,9 +49,10 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
     }
   };
 
-  // Disparar Alerta através do servidor e canais
+  // Disparar Alerta através do servidor e canais (com fallback local para GitHub Pages)
   const dispararAlertaGeral = async () => {
     setDisparando(true);
+    let alertaCriado: AlertaDivulgacao | null = null;
     try {
       const resp = await fetch('/api/alertas/disparar', {
         method: 'POST',
@@ -62,23 +63,42 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
           mensagemPersonalizada: textoGerado,
         }),
       });
-      const data = await resp.json();
-      if (data.sucesso && data.alerta) {
-        onAlertaDisparado(data.alerta);
-
-        // Native HTML5 browser notification if permitted
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(`🚨 ALERTA: ${proposicaoSelecionada.codigo}`, {
-            body: `Entrou na pauta de votação: ${proposicaoSelecionada.tituloCurto}`,
-            icon: '/favicon.ico',
-          });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.sucesso && data.alerta) {
+          alertaCriado = data.alerta;
         }
       }
     } catch (_err) {
-      // Ignore
-    } finally {
-      setDisparando(false);
+      // Falha esperada em hosts estáticos como GitHub Pages
     }
+
+    // Se o backend não responder (como no GitHub Pages com 405), gera o alerta localmente no cliente
+    if (!alertaCriado) {
+      alertaCriado = {
+        id: `alt-${Date.now()}`,
+        proposicaoId: proposicaoSelecionada.id,
+        proposicaoCodigo: proposicaoSelecionada.codigo,
+        titulo: `ALERTA DE VOTAÇÃO: ${proposicaoSelecionada.codigo} - ${proposicaoSelecionada.tituloCurto}`,
+        mensagem: textoGerado,
+        canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
+        status: 'DISPARADO',
+        dataHora: 'Agora mesmo',
+        destinatariosSimulados: Math.floor(Math.random() * 8000) + 5000,
+      };
+    }
+
+    if (alertaCriado) {
+      onAlertaDisparado(alertaCriado);
+      // Native HTML5 browser notification if permitted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`🚨 ALERTA: ${proposicaoSelecionada.codigo}`, {
+          body: `Entrou na pauta de votação: ${proposicaoSelecionada.tituloCurto}`,
+          icon: '/favicon.ico',
+        });
+      }
+    }
+    setDisparando(false);
   };
 
   // Solicitar permissão de notificação no navegador

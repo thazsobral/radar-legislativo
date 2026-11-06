@@ -71,6 +71,9 @@ export default function App() {
           apenasUrgentes: false,
         }),
       });
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
       const data = await resp.json();
       if (data.sucesso && data.dados) {
         setProposicoes(data.dados);
