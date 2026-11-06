@@ -83,41 +83,6 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Alert Readiness & Quick Test Bar */}
-      <div className="bg-emerald-950 text-white p-4 rounded-xl border border-emerald-800/80 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center shrink-0">
-            <Radio className="w-4 h-4 text-emerald-300 animate-pulse" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-white flex items-center gap-1.5">
-              <span>Robô de Alertas Operacional · Som e Pop-up Ativos</span>
-              <span className="bg-emerald-500 text-slate-950 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold">100% ONLINE</span>
-            </div>
-            <p className="text-[11px] text-emerald-200">
-              Notifica no momento em que uma proposta entra em pauta ou atinge quórum de votação.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onDispararAlertaTeste}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 cursor-pointer transition-colors shadow-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Testar Alerta Agora</span>
-          </button>
-
-          <button
-            onClick={onIrParaDiagnostico}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 cursor-pointer border border-emerald-700/60 transition-colors"
-          >
-            <span>Como Garantir que Funciona?</span>
-          </button>
-        </div>
-      </div>
-
       {/* Top Banner / Metrics Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
