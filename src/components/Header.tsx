@@ -275,7 +275,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Como Garantir que Funciona?</span>
+            <span>Status do Serviço & Diagnóstico</span>
           </button>
 
           <button
