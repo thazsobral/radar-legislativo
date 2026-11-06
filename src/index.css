@@ -37,3 +37,27 @@
 .nav-scroll-bar::-webkit-scrollbar-thumb:hover {
   background: #10b981;
 }
+
+/* Barra de rolagem horizontal customizada para filtro de temas */
+.theme-scroll-bar {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.theme-scroll-bar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.theme-scroll-bar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.theme-scroll-bar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+.theme-scroll-bar::-webkit-scrollbar-thumb:hover {
+  background: #047857;
+}

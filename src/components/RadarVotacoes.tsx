@@ -198,8 +198,8 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
           </button>
         </div>
 
-        {/* Filter tags (Interactive filter segmented bar) */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100 scrollbar-none text-xs">
+        {/* Filter tags (Barra de rolagem horizontal para temas legislativos) */}
+        <div className="theme-scroll-bar flex items-center gap-2 overflow-x-auto pt-2 pb-2.5 border-t border-slate-100 text-xs scroll-smooth">
           <span className="text-slate-500 flex items-center gap-1 font-medium whitespace-nowrap">
             <Filter className="w-3 h-3" /> Temas:
           </span>
