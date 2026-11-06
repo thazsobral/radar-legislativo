@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   Bell,
@@ -11,9 +11,6 @@ import {
   VolumeX,
   Zap,
   X,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
 } from 'lucide-react';
 import { AlertaDivulgacao } from '../types/legislative';
 
@@ -47,13 +44,6 @@ export const Header: React.FC<HeaderProps> = ({
   onDispararAlertaTeste,
 }) => {
   const [dropdownAberto, setDropdownAberto] = useState(false);
-  const navRef = useRef<HTMLDivElement | null>(null);
-
-  const rolarNav = (direcao: 'esquerda' | 'direita') => {
-    if (!navRef.current) return;
-    const delta = direcao === 'esquerda' ? -220 : 220;
-    navRef.current.scrollBy({ left: delta, behavior: 'smooth' });
-  };
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-sm">
@@ -208,23 +198,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation (Barra de rolagem horizontal customizada para navegação entre módulos) */}
+        {/* Tab Navigation (Barra de rolagem horizontal com suporte a toque e rolagem fluida) */}
         <div
-          ref={navRef}
           role="navigation"
           aria-label="Módulos do sistema"
           className="nav-scroll-bar flex items-center gap-1.5 overflow-x-auto pt-2 pb-2.5 border-t border-slate-800/80 -mx-2 px-2 scroll-smooth"
         >
-          <button
-            type="button"
-            onClick={() => rolarNav('esquerda')}
-            aria-label="Rolar módulos para a esquerda"
-            className="p-1.5 rounded-md bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0 border border-slate-700/60"
-            title="Rolar módulos para esquerda"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-
           <button
             onClick={() => setTabAtiva('radar')}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
@@ -288,16 +267,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Configuração do Robô</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => rolarNav('direita')}
-            aria-label="Rolar módulos para a direita"
-            className="p-1.5 rounded-md bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0 border border-slate-700/60"
-            title="Rolar módulos para direita"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
