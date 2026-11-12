@@ -6,7 +6,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?logo=tailwindcss)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite)
-![Google Gemini](https://img.shields.io/badge/Google_Gemini-3.8_Flash-8e75ff?logo=google)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-4_Hydrogen-8e75ff?logo=google)
 ![Licença](https://img.shields.io/badge/License-Apache_2.0-green)
 
 ---
@@ -28,7 +28,7 @@
 
 ## 🎯 Visão Geral
 
-O **Radar Legislativo** foi desenvolvido para aproximar o cidadão, jornalistas, assessores e entidades setoriais das deliberações mais urgentes do Congresso Nacional. O robô monitora a pauta oficial em tempo real, sintetiza termos jurídicos complexos em linguagem cidadã via **Google Gemini 3.8 Flash** e automatiza a divulgação instantânea para múltiplos canais.
+O **Radar Legislativo** foi desenvolvido para aproximar o cidadão, jornalistas, assessores e entidades setoriais das deliberações mais urgentes do Congresso Nacional. O robô consulta diretamente as APIs oficiais em tempo real, sintetiza termos jurídicos complexos em linguagem cidadã via **Google Gemini 4 Hydrogen** e automatiza a divulgação instantânea para múltiplos canais.
 
 ---
 
@@ -60,10 +60,10 @@ O **Radar Legislativo** foi desenvolvido para aproximar o cidadão, jornalistas,
 - **Sliders interativos de alianças**: Ajuste a fidelidade e adesão da bancada do Centrão e da Oposição para projetar a probabilidade de aprovação e margem sobre a linha de quórum.
 
 ### 5. 🤖 Parecer Inteligente & Explicador Cidadão com IA
-- Alimentado pelo modelo **Google Gemini 3.8 Flash** executado no servidor Node.js.
-- **Tradução cidadã**: Síntese sem juridiquês do que a lei muda na vida cotidiana.
+- Alimentado pelo modelo **Google Gemini 4 Hydrogen** executado no servidor Node.js.
+- **Tradução cidadã**: Síntese sem juridiquês do que a lei muda na vida cotidiana com base estritamente nos dados oficiais.
 - **Mapeamento de forças**: Identificação explícita de "Quem Ganha", "Quem Perde/Enfrenta Custos" e "Cenário Político Estratégico".
-- **Resiliência total**: Sistema com contingência heurística de alta fidelidade que garante resposta ininterrupta.
+- **Transparência total**: Sem respostas fictícias ou simulações; erros ou ausência de chave são reportados diretamente na interface.
 
 ### 6. 🎨 Gerador de Cards Visuais para Redes Sociais
 - Pré-visualização de cards com padrão visual legislativo profissional.
@@ -108,15 +108,15 @@ O **Radar Legislativo** foi desenvolvido para aproximar o cidadão, jornalistas,
 │  API de Varredura e Pautas   │  API de Diagnóstico Oficial  │
 │  (/api/scan, /api/proposic.) │  (/api/diagnostico)          │
 ├──────────────────────────────┼──────────────────────────────┤
-│  API de Alertas & Divulgação │  API Gemini 3.8 Flash Server │
+│  API de Alertas & Divulgação │  API Gemini 4 Hydrogen       │
 │  (/api/alertas/disparar)     │  (/api/ai-impact & /stream)  │
 └──────────────┬───────────────┴──────────────┬───────────────┘
                │                              │
                ▼                              ▼
  ┌───────────────────────────┐  ┌───────────────────────────┐
  │ APIs Oficiais do Governo  │  │   Google AI Studio API    │
- │  - Dados Abertos Câmara   │  │   - Modelo: gemini-3.8-   │
- │  - Dados Abertos Senado   │  │     flash                 │
+ │  - Dados Abertos Câmara   │  │   - Modelo: gemini-4-     │
+ │  - Dados Abertos Senado   │  │     hydrogen              │
  └───────────────────────────┘  └───────────────────────────┘
 ```
 
@@ -132,8 +132,10 @@ O **Radar Legislativo** foi desenvolvido para aproximar o cidadão, jornalistas,
 | `POST` | `/api/alertas/disparar` | Dispara um novo alerta para WhatsApp, Telegram, X e Webhooks |
 | `GET` | `/api/diagnostico` | Testa conexão e latência das APIs oficiais e status da IA |
 | `GET` | `/api/ai-status` | Retorna o status operacional do modelo Gemini no servidor |
-| `POST` | `/api/ai-impact` | Gera parecer estruturado com Google Gemini 3.8 Flash |
+| `POST` | `/api/ai-impact` | Gera parecer estruturado com Google Gemini 4 Hydrogen |
 | `POST` | `/api/ai-impact/stream` | Streaming de parecer via Server-Sent Events (SSE) |
+| `GET`/`POST` | `/api/config` | Lê e persiste as configurações do robô em disco |
+| `POST` | `/api/webhook/test` | Executa ping HTTP POST real no webhook configurado |
 
 ---
 
@@ -193,7 +195,7 @@ PORT=3000
 APP_URL="http://localhost:3000"
 ```
 
-> **Nota:** Caso nenhuma chave seja configurada, o sistema aciona automaticamente a contingência heurística legislativa, garantindo funcionamento ininterrupto para demonstrações.
+> **Nota:** Para gerar pareceres de inteligência artificial, configure uma chave no `.env` do servidor ou informe sua chave diretamente no painel da aba *Análise de Impacto Parlamentar*.
 
 ---
 
@@ -213,8 +215,8 @@ APP_URL="http://localhost:3000"
     ├── index.css                 # Import do Tailwind CSS (@import "tailwindcss")
     ├── types/
     │   └── legislative.ts        # Tipagem TypeScript (Proposições, Alertas, Bancadas)
-    ├── data/
-    │   └── mockLegislativeData.ts # Base rica com matérias de alta relevância nacional
+    ├── services/
+    │   └── legislativeDataService.ts # Cliente ao vivo das APIs da Câmara e Senado
     ├── utils/
     │   ├── aiAnalysisClient.ts   # Cliente de comunicação com /api/ai-impact e SSE
     │   ├── alertAudio.ts         # Sintetizador de alerta sonoro (Web Audio API)

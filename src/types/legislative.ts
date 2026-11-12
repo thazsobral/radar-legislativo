@@ -14,7 +14,7 @@ export type NivelRisco = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO';
 
 export interface ImpactoLegislativo {
   fiscal: {
-    valorEstimadoBi: number; // Ex: 12.5 para R$ 12,5 bilhões
+    valorEstimadoBi: number | null; // null quando não quantificado nos dados oficiais
     tipo: ImpactoFiscalTipo;
     nivelRisco: NivelRisco;
     descricao: string;
@@ -34,10 +34,10 @@ export interface RelatorParlamentar {
 }
 
 export interface BancadasPosicionamento {
-  governista: number; // percentual ou número de parlamentares favoráveis
-  oposicao: number;   // votos contrários estimados
-  centrao: number;    // votos em disputa ou com tendência
-  indecisos: number;  // parlamentares flutuantes
+  governista: number; // parlamentares em exercício na base
+  oposicao: number;   // parlamentares em exercício na oposição
+  centrao: number;    // parlamentares em exercício no bloco de centro
+  indecisos: number;  // sem partido / independentes
 }
 
 export interface HistoricoEvento {
@@ -48,18 +48,18 @@ export interface HistoricoEvento {
 
 export interface ProposicaoLegislativa {
   id: string;
-  codigo: string; // ex: "PLP 68/2024"
-  siglaTipo: string; // ex: "PLP", "PEC", "PL", "MPV"
+  codigo: string; // ex: "PL 479/2025"
+  siglaTipo: string; // ex: "PLP", "PEC", "PL", "MPV", "PLN"
   numero: number;
   ano: number;
   tituloCurto: string;
   ementa: string;
-  resumoCidadao: string; // Linguagem simples traduzida do juridiquês
+  resumoCidadao: string; // Síntese oficial ou explicação gerada por IA
   casa: CasaLegislativa;
-  orgaoAtual: string; // ex: "Plenário da Câmara", "CCJ - Comissão de Constituição e Justiça"
-  statusTramitacao: string; // ex: "Pauta de Votação Hoje", "Regime de Urgência Aprovado", "Pronto para Deliberação"
+  orgaoAtual: string; // ex: "Plenário da Câmara dos Deputados"
+  statusTramitacao: string;
   regimeUrgencia: boolean;
-  dataPrevistaVotacao: string; // ISO date ou "Hoje", "Amanhã", "Próxima Sessão"
+  dataPrevistaVotacao: string; // Data real da pauta ou última movimentação
   prioridadeGoverno: 'ALTA' | 'MEDIA' | 'NEUTRA' | 'OPOSICAO';
   autor: string;
   relator: RelatorParlamentar;
@@ -72,6 +72,7 @@ export interface ProposicaoLegislativa {
   historicoEventos: HistoricoEvento[];
   pontosPositivos: string[];
   pontosCriticos: string[];
+  fonteOficial?: string;
 }
 
 export type CanalDivulgacao = 'WHATSAPP' | 'TELEGRAM' | 'TWITTER' | 'WEBHOOK' | 'PUSH';
@@ -85,8 +86,12 @@ export interface AlertaDivulgacao {
   canais: CanalDivulgacao[];
   status: 'DISPARADO' | 'AGENDADO' | 'PENDENTE';
   dataHora: string;
-  destinatariosSimulados?: number;
   linkCompartilhavel?: string;
+  webhookEntrega?: {
+    enviado: boolean;
+    statusHttp?: number;
+    erro?: string;
+  };
 }
 
 export interface ConfiguracaoRobo {

@@ -154,9 +154,14 @@ export const CardVisualSocial: React.FC<CardVisualSocialProps> = ({ proposicao }
     ctx.fillStyle = '#94a3b8';
     ctx.font = '500 16px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('IMPACTO FISCAL / ANO', box3X + 20, boxY + 35);
+    const valorFiscalTexto =
+      proposicao.impacto.fiscal.valorEstimadoBi !== null &&
+      proposicao.impacto.fiscal.valorEstimadoBi !== 0
+        ? formatarValorImpacto(proposicao.impacto.fiscal.valorEstimadoBi)
+        : 'Não quantificado';
     ctx.fillStyle = '#fbbf24'; // amber-400
-    ctx.font = 'bold 26px "JetBrains Mono", monospace';
-    ctx.fillText(formatarValorImpacto(proposicao.impacto.fiscal.valorEstimadoBi), box3X + 20, boxY + 75);
+    ctx.font = valorFiscalTexto.length > 14 ? 'bold 21px "JetBrains Mono", monospace' : 'bold 26px "JetBrains Mono", monospace';
+    ctx.fillText(valorFiscalTexto, box3X + 20, boxY + 75);
     ctx.fillStyle = '#cbd5e1';
     ctx.font = '400 14px "Plus Jakarta Sans", sans-serif';
     ctx.fillText(`Classificação: ${proposicao.impacto.fiscal.tipo}`, box3X + 20, boxY + 95);
@@ -164,8 +169,8 @@ export const CardVisualSocial: React.FC<CardVisualSocialProps> = ({ proposicao }
     // Footer info
     ctx.fillStyle = '#64748b'; // slate-500
     ctx.font = '500 15px "Plus Jakarta Sans", sans-serif';
-    ctx.fillText('radarlegislativo.gov.br  ·  Dados abertos oficiais da Câmara & Senado', 60, 595);
-    ctx.fillText('Gerado via Robô de Votações', width - 300, 595);
+    ctx.fillText('Dados abertos oficiais · Câmara dos Deputados & Senado Federal', 60, 595);
+    ctx.fillText('Gerado via Radar Legislativo', width - 290, 595);
   }, [proposicao]);
 
   const baixarImagem = () => {

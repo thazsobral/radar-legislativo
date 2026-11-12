@@ -62,11 +62,12 @@ test('estimarProbabilidadeAprovacao: calcula porcentagem ponderada por margem e 
 test('formatarValorImpacto: formata bilhões e milhões corretamente', () => {
   assert.equal(formatarValorImpacto(25.4), 'R$ 25,4 bilhões');
   assert.equal(formatarValorImpacto(0.85), 'R$ 850 milhões');
-  assert.equal(formatarValorImpacto(0), 'Neutro / Não quantificado');
+  assert.equal(formatarValorImpacto(0), 'Não quantificado na API oficial');
+  assert.equal(formatarValorImpacto(null), 'Não quantificado na API oficial');
 });
 
 test('gerarTextoDivulgacao: formata mensagem para Twitter e WhatsApp', () => {
-  const mockProposta: ProposicaoLegislativa = {
+  const proposta: ProposicaoLegislativa = {
     id: '123',
     codigo: 'PLP 68/2024',
     siglaTipo: 'PLP',
@@ -100,12 +101,12 @@ test('gerarTextoDivulgacao: formata mensagem para Twitter e WhatsApp', () => {
     pontosCriticos: ['Impacto no setor de serviços'],
   };
 
-  const tweet = gerarTextoDivulgacao(mockProposta, 'TWITTER');
+  const tweet = gerarTextoDivulgacao(proposta, 'TWITTER');
   assert.ok(tweet.includes('PLP 68/2024'));
   assert.ok(tweet.includes('Câmara dos Deputados'));
   assert.ok(tweet.length <= 280);
 
-  const zap = gerarTextoDivulgacao(mockProposta, 'WHATSAPP');
+  const zap = gerarTextoDivulgacao(proposta, 'WHATSAPP');
   assert.ok(zap.includes('*PLP 68/2024*'));
   assert.ok(zap.includes('84%'));
 });

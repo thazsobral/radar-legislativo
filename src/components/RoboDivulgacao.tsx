@@ -23,6 +23,7 @@ interface RoboDivulgacaoProps {
   onSelecionarProposicao: (proposicao: ProposicaoLegislativa) => void;
   alertas: AlertaDivulgacao[];
   onAlertaDisparado: (novoAlerta: AlertaDivulgacao) => void;
+  webhookUrl?: string;
 }
 
 export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
@@ -31,11 +32,13 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
   onSelecionarProposicao,
   alertas,
   onAlertaDisparado,
+  webhookUrl,
 }) => {
   const [canalAtivo, setCanalAtivo] = useState<CanalDivulgacao>('WHATSAPP');
   const [copiado, setCopiado] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [notifStatus, setNotifStatus] = useState<string>('');
+  const [erroDisparo, setErroDisparo] = useState<string>('');
 
   const textoGerado = gerarTextoDivulgacao(proposicaoSelecionada, canalAtivo);
 
@@ -45,60 +48,44 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch (_err) {
-      // Fallback
+      // Sem suporte ao clipboard
     }
   };
 
-  // Disparar Alerta através do servidor e canais (com fallback local para GitHub Pages)
+  // Disparar Alerta real através do servidor (e webhook HTTP se configurado)
   const dispararAlertaGeral = async () => {
     setDisparando(true);
-    let alertaCriado: AlertaDivulgacao | null = null;
+    setErroDisparo('');
     try {
       const resp = await fetch('/api/alertas/disparar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           proposicaoId: proposicaoSelecionada.id,
-          canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
+          proposicaoSnapshot: proposicaoSelecionada,
+          canais: webhookUrl
+            ? ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'WEBHOOK', 'PUSH']
+            : ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
           mensagemPersonalizada: textoGerado,
+          webhookUrl: webhookUrl || undefined,
         }),
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.sucesso && data.alerta) {
-          alertaCriado = data.alerta;
+      const data = await resp.json();
+      if (resp.ok && data.sucesso && data.alerta) {
+        onAlertaDisparado(data.alerta);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(`🚨 ALERTA: ${proposicaoSelecionada.codigo}`, {
+            body: `Entrou na pauta de votação: ${proposicaoSelecionada.tituloCurto}`,
+          });
         }
+      } else {
+        setErroDisparo(data?.erro || 'Erro ao registrar disparo no servidor.');
       }
-    } catch (_err) {
-      // Falha esperada em hosts estáticos como GitHub Pages
+    } catch (err: any) {
+      setErroDisparo(err?.message || 'Falha de rede ao enviar alerta.');
+    } finally {
+      setDisparando(false);
     }
-
-    // Se o backend não responder (como no GitHub Pages com 405), gera o alerta localmente no cliente
-    if (!alertaCriado) {
-      alertaCriado = {
-        id: `alt-${Date.now()}`,
-        proposicaoId: proposicaoSelecionada.id,
-        proposicaoCodigo: proposicaoSelecionada.codigo,
-        titulo: `ALERTA DE VOTAÇÃO: ${proposicaoSelecionada.codigo} - ${proposicaoSelecionada.tituloCurto}`,
-        mensagem: textoGerado,
-        canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
-        status: 'DISPARADO',
-        dataHora: 'Agora mesmo',
-        destinatariosSimulados: Math.floor(Math.random() * 8000) + 5000,
-      };
-    }
-
-    if (alertaCriado) {
-      onAlertaDisparado(alertaCriado);
-      // Native HTML5 browser notification if permitted
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`🚨 ALERTA: ${proposicaoSelecionada.codigo}`, {
-          body: `Entrou na pauta de votação: ${proposicaoSelecionada.tituloCurto}`,
-          icon: '/favicon.ico',
-        });
-      }
-    }
-    setDisparando(false);
   };
 
   // Solicitar permissão de notificação no navegador
@@ -169,6 +156,12 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
             </button>
           </div>
         </div>
+
+        {erroDisparo && (
+          <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 p-2.5 rounded-lg">
+            {erroDisparo}
+          </div>
+        )}
 
         {/* Browser Push Permission Banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-50 rounded-lg border border-slate-200 gap-3 text-xs">
@@ -302,46 +295,56 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
         </div>
 
         <div className="space-y-3">
-          {alertas.map((alerta) => (
-            <div
-              key={alerta.id}
-              className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2 text-xs"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-mono">
-                  <span className="font-bold text-slate-900">{alerta.proposicaoCodigo}</span>
-                  <span className="text-slate-400">·</span>
-                  <span className="text-emerald-700 font-semibold">{alerta.status}</span>
-                </div>
-                <span className="text-slate-500 font-mono">{alerta.dataHora}</span>
-              </div>
-
-              <div className="font-semibold text-slate-800">{alerta.titulo}</div>
-              <p className="text-slate-600 leading-relaxed">{alerta.mensagem}</p>
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-slate-500">
-                <div className="flex items-center gap-2">
-                  <span>Canais:</span>
-                  <div className="flex gap-1">
-                    {alerta.canais.map((c) => (
-                      <span
-                        key={c}
-                        className="bg-white border border-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-700"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {alerta.destinatariosSimulados && (
-                  <span className="font-mono text-emerald-700 font-medium">
-                    ~{alerta.destinatariosSimulados.toLocaleString('pt-BR')} destinatários alcançados
-                  </span>
-                )}
-              </div>
+          {alertas.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              Nenhum alerta real disparado nesta instância ainda. Selecione uma matéria acima e clique em <strong>"Disparar Alerta Geral"</strong>.
             </div>
-          ))}
+          ) : (
+            alertas.map((alerta) => (
+              <div
+                key={alerta.id}
+                className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-mono">
+                    <span className="font-bold text-slate-900">{alerta.proposicaoCodigo}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-emerald-700 font-semibold">{alerta.status}</span>
+                  </div>
+                  <span className="text-slate-500 font-mono">{alerta.dataHora}</span>
+                </div>
+
+                <div className="font-semibold text-slate-800">{alerta.titulo}</div>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-line">{alerta.mensagem}</p>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <span>Canais:</span>
+                    <div className="flex gap-1">
+                      {alerta.canais.map((c) => (
+                        <span
+                          key={c}
+                          className="bg-white border border-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-700"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {alerta.webhookEntrega && (
+                    <span
+                      className={`font-mono text-[11px] font-medium ${
+                        alerta.webhookEntrega.enviado ? 'text-emerald-700' : 'text-rose-700'
+                      }`}
+                    >
+                      Webhook: {alerta.webhookEntrega.enviado ? `Entregue (HTTP ${alerta.webhookEntrega.statusHttp})` : `Falha (${alerta.webhookEntrega.erro})`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

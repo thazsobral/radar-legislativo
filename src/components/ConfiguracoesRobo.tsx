@@ -63,11 +63,42 @@ export const ConfiguracoesRobo: React.FC<ConfiguracoesRoboProps> = ({
     setTimeout(() => setSalvo(false), 3000);
   };
 
+  const [testandoWebhook, setTestandoWebhook] = useState(false);
+  const [webhookErro, setWebhookErro] = useState(false);
+
   const testarWebhook = async () => {
-    setWebhookTesteMsg('Disparando ping de teste para o webhook configurado...');
-    setTimeout(() => {
-      setWebhookTesteMsg('Status 200 OK: Webhook respondeu com sucesso ao pacote de teste!');
-    }, 1000);
+    if (!formData.webhookUrl.trim()) {
+      setWebhookErro(true);
+      setWebhookTesteMsg('Informe uma URL HTTP/HTTPS válida antes de testar.');
+      return;
+    }
+
+    setTestandoWebhook(true);
+    setWebhookErro(false);
+    setWebhookTesteMsg('Enviando requisição HTTP POST real para o endpoint informado...');
+
+    try {
+      const resp = await fetch('/api/webhook/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhookUrl: formData.webhookUrl.trim() }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.sucesso) {
+        setWebhookErro(false);
+        setWebhookTesteMsg(
+          `HTTP ${data.statusHttp} OK (${data.latenciaMs} ms) — Webhook recebeu o pacote JSON de teste!`
+        );
+      } else {
+        setWebhookErro(true);
+        setWebhookTesteMsg(data.erro || `Falha HTTP ${data.statusHttp || resp.status}`);
+      }
+    } catch (err: any) {
+      setWebhookErro(true);
+      setWebhookTesteMsg(err?.message || 'Erro de rede ao testar o webhook.');
+    } finally {
+      setTestandoWebhook(false);
+    }
   };
 
   return (
@@ -296,13 +327,20 @@ export const ConfiguracoesRobo: React.FC<ConfiguracoesRoboProps> = ({
             <button
               type="button"
               onClick={testarWebhook}
-              className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 cursor-pointer transition-colors"
+              disabled={testandoWebhook}
+              className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 cursor-pointer transition-colors disabled:opacity-50"
             >
-              <Send className="w-3.5 h-3.5 inline mr-1" /> Testar
+              <Send className="w-3.5 h-3.5 inline mr-1" /> {testandoWebhook ? 'Testando...' : 'Testar'}
             </button>
           </div>
           {webhookTesteMsg && (
-            <div className="text-[11px] text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200">
+            <div
+              className={`text-[11px] p-2 rounded border ${
+                webhookErro
+                  ? 'text-rose-700 bg-rose-50 border-rose-200'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              }`}
+            >
               {webhookTesteMsg}
             </div>
           )}

@@ -73,13 +73,15 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
     });
   }, [proposicoes, filtroCasa, filtroTipo, apenasUrgentes, temaSelecionado, busca]);
 
-  // High-level summary metrics
-  const totalImpactoFiscal = useMemo(() => {
-    return proposicoes.reduce((acc, curr) => acc + (curr.impacto.fiscal.valorEstimadoBi || 0), 0);
-  }, [proposicoes]);
-
-  const materiasHoje = proposicoes.filter((p) => p.dataPrevistaVotacao.toLowerCase().includes('hoje')).length;
+  // High-level summary metrics from live data
+  const emPautaPlenario = proposicoes.filter(
+    (p) =>
+      p.dataPrevistaVotacao.toLowerCase().includes('hoje') ||
+      p.tags.includes('Pauta do Plenário') ||
+      p.casa === 'CONGRESSO'
+  ).length;
   const pecsNaPauta = proposicoes.filter((p) => p.siglaTipo === 'PEC').length;
+  const urgentesCount = proposicoes.filter((p) => p.regimeUrgencia).length;
 
   return (
     <div className="space-y-6">
@@ -87,9 +89,9 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
           className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
-          title="Total de matérias legislativas monitoradas ativamente pelo robô no Congresso Nacional (Câmara dos Deputados e Senado Federal)."
+          title="Total de matérias legislativas reais carregadas das APIs oficiais da Câmara dos Deputados e do Senado Federal."
         >
-          <div className="text-xs text-slate-500 font-medium">Matérias Monitoradas</div>
+          <div className="text-xs text-slate-500 font-medium">Matérias Oficiais Rastreadas</div>
           <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
             {proposicoes.length}
           </div>
@@ -100,14 +102,14 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
         <div
           className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
-          title="Proposições prioritárias pautadas para deliberação na sessão plenária de hoje na Ordem do Dia."
+          title="Proposições localizadas diretamente na pauta deliberativa do Plenário ou Sessões Conjuntas do Congresso Nacional."
         >
-          <div className="text-xs text-slate-500 font-medium">Votações Previstas Hoje</div>
+          <div className="text-xs text-slate-500 font-medium">Na Pauta do Plenário</div>
           <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
-            {materiasHoje}
+            {emPautaPlenario}
           </div>
           <div className="text-xs text-emerald-700 mt-1">
-            Na ordem do dia e deliberações
+            Ordem do dia e sessões ativas
           </div>
         </div>
 
@@ -126,14 +128,14 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
 
         <div
           className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs transition-shadow hover:shadow-sm"
-          title="Soma estimada do impacto fiscal das matérias sob análise, cobrindo potencial de arrecadação, renúncia ou despesas públicas."
+          title="Proposições oficiais tramitando em Regime de Urgência ou Medidas Provisórias com rito acelerado para votação imediata."
         >
-          <div className="text-xs text-slate-500 font-medium">Impacto Orçamentário Rastreado</div>
+          <div className="text-xs text-slate-500 font-medium">Em Regime de Urgência</div>
           <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-            R$ {totalImpactoFiscal.toFixed(1)} bi
+            {urgentesCount}
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            Receitas & despesas sob votação
+            Prioridade de deliberação
           </div>
         </div>
       </div>
@@ -343,11 +345,18 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                   </h3>
                   <div
                     className="bg-slate-50 p-3 rounded-lg border border-slate-200/70 text-xs text-slate-700 leading-relaxed cursor-help"
-                    title="Resumo Cidadão: explicação em linguagem direta e acessível sobre como essa lei impacta os direitos, o bolso e a rotina da população brasileira."
+                    title="Ementa e último despacho oficial registrado diretamente nos Dados Abertos do Congresso Nacional."
                     tabIndex={0}
                   >
-                    <div className="flex items-center gap-1 text-emerald-800 font-semibold mb-1">
-                      <Sparkles className="w-3 h-3 text-emerald-600" /> Resumo Cidadão (Sem Juridiquês):
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="flex items-center gap-1 text-emerald-800 font-semibold">
+                        <FileText className="w-3 h-3 text-emerald-600" /> Ementa & Despacho Oficial:
+                      </span>
+                      {proposta.fonteOficial && (
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {proposta.fonteOficial}
+                        </span>
+                      )}
                     </div>
                     {proposta.resumoCidadao}
                   </div>
@@ -375,34 +384,36 @@ export const RadarVotacoes: React.FC<RadarVotacoesProps> = ({
                   {/* Rapporteur */}
                   <div
                     className="cursor-help"
-                    title={`Relatoria do texto: parlamentar ${proposta.relator.nome} (${proposta.relator.partido}/${proposta.relator.uf}) designado para analisar o projeto e emitir o parecer legislativo. Parecer atual: ${proposta.relator.parecer || 'Aguardando parecer oficial'}.`}
+                    title={`Relatoria do texto: ${proposta.relator.nome}. Parecer atual: ${proposta.relator.parecer || 'Aguardando parecer oficial'}.`}
                     tabIndex={0}
                   >
                     <div className="text-slate-500 font-medium flex items-center gap-1">
-                      <UserCheck className="w-3 h-3 text-slate-400" /> Relatoria
+                      <UserCheck className="w-3 h-3 text-slate-400" /> Relatoria & Autoria
                     </div>
                     <div className="font-semibold text-slate-900 mt-0.5 truncate">
-                      {proposta.relator.nome} ({proposta.relator.partido}-{proposta.relator.uf})
+                      {proposta.relator.partido && proposta.relator.partido !== '—'
+                        ? `${proposta.relator.nome} (${proposta.relator.partido}-${proposta.relator.uf})`
+                        : proposta.relator.nome}
                     </div>
-                    <div className="text-[11px] text-emerald-700 font-medium">
-                      Parecer: {proposta.relator.parecer || 'Aguardando'}
+                    <div className="text-[11px] text-emerald-700 font-medium truncate">
+                      Autor: {proposta.autor}
                     </div>
                   </div>
 
                   {/* Fiscal impact */}
                   <div
                     className="cursor-help"
-                    title={`Impacto fiscal e orçamentário: estimado em ${formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}. Classificação: ${proposta.impacto.fiscal.tipo}. Nível de risco fiscal: ${proposta.impacto.fiscal.nivelRisco}. Diagnóstico: ${proposta.impacto.fiscal.descricao}`}
+                    title={`Impacto fiscal e orçamentário: ${formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}. ${proposta.impacto.fiscal.descricao}`}
                     tabIndex={0}
                   >
                     <div className="text-slate-500 font-medium flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 text-slate-400" /> Impacto Fiscal Estimado
+                      <DollarSign className="w-3 h-3 text-slate-400" /> Status & Impacto Fiscal
                     </div>
-                    <div className="font-semibold font-mono text-slate-900 mt-0.5">
+                    <div className="font-semibold text-slate-900 mt-0.5 truncate">
                       {formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      Tipo: {proposta.impacto.fiscal.tipo} · Risco {proposta.impacto.fiscal.nivelRisco}
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {proposta.statusTramitacao}
                     </div>
                   </div>
                 </div>

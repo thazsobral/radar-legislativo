@@ -156,20 +156,26 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                    {alertas.slice(0, 4).map((alerta) => (
-                      <div
-                        key={alerta.id}
-                        className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:bg-slate-100 transition-colors"
-                      >
-                        <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 mb-1">
-                          <span className="font-bold text-slate-900">{alerta.proposicaoCodigo}</span>
-                          <span>{alerta.dataHora}</span>
-                        </div>
-                        <div className="font-medium text-slate-800 line-clamp-2">
-                          {alerta.titulo}
-                        </div>
+                    {alertas.length === 0 ? (
+                      <div className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 text-center text-slate-500 text-xs">
+                        Nenhum alerta disparado ainda. Use <strong>"Testar Alerta"</strong> ou dispare na aba Robô Divulgador.
                       </div>
-                    ))}
+                    ) : (
+                      alertas.slice(0, 4).map((alerta) => (
+                        <div
+                          key={alerta.id}
+                          className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 mb-1">
+                            <span className="font-bold text-slate-900">{alerta.proposicaoCodigo}</span>
+                            <span>{alerta.dataHora}</span>
+                          </div>
+                          <div className="font-medium text-slate-800 line-clamp-2">
+                            {alerta.titulo}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between">

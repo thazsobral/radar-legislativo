@@ -6,22 +6,34 @@ import { RoboDivulgacao } from './components/RoboDivulgacao';
 import { ConfiguracoesRobo } from './components/ConfiguracoesRobo';
 import { PainelDiagnostico } from './components/PainelDiagnostico';
 import { ModalAlertaAtivo } from './components/ModalAlertaAtivo';
-import { PROPOSICOES_INICIAIS, ALERTAS_INICIAIS } from './data/mockLegislativeData';
 import {
   ProposicaoLegislativa,
   AlertaDivulgacao,
   ConfiguracaoRobo,
 } from './types/legislative';
 import { tocarAlertaSonoro } from './utils/alertAudio';
-import { ExternalLink, Radio } from 'lucide-react';
+import { ExternalLink, Radio, RefreshCw, AlertCircle } from 'lucide-react';
+
+const CONFIG_PADRAO: ConfiguracaoRobo = {
+  ativo: true,
+  intervaloMinutos: 15,
+  palavrasChave: ['PEC', 'Reforma', 'IA', 'Orçamento', 'Tributário', 'Urgência'],
+  temasFiltro: ['Economia', 'Tecnologia', 'Orçamento', 'Administração Pública'],
+  casasMonitoradas: ['CAMARA', 'SENADO', 'CONGRESSO'],
+  apenasUrgentes: false,
+  notificacoesBrowser: true,
+  webhookUrl: '',
+  autoPublicarRedes: false,
+  impactoMinimoFiscalBi: 0,
+};
 
 export default function App() {
   const [tabAtiva, setTabAtiva] = useState<TabType>('radar');
-  const [proposicoes, setProposicoes] = useState<ProposicaoLegislativa[]>(PROPOSICOES_INICIAIS);
-  const [proposicaoSelecionada, setProposicaoSelecionada] = useState<ProposicaoLegislativa>(
-    PROPOSICOES_INICIAIS[0]
-  );
-  const [alertas, setAlertas] = useState<AlertaDivulgacao[]>(ALERTAS_INICIAIS);
+  const [proposicoes, setProposicoes] = useState<ProposicaoLegislativa[]>([]);
+  const [proposicaoSelecionada, setProposicaoSelecionada] = useState<ProposicaoLegislativa | null>(null);
+  const [alertas, setAlertas] = useState<AlertaDivulgacao[]>([]);
+  const [carregandoInicial, setCarregandoInicial] = useState(true);
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
   const [emVarredura, setEmVarredura] = useState(false);
   const [toastNotificacao, setToastNotificacao] = useState<string | null>(null);
   const [somAtivado, setSomAtivado] = useState<boolean>(true);
@@ -31,37 +43,64 @@ export default function App() {
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
 
-  const [config, setConfig] = useState<ConfiguracaoRobo>({
-    ativo: true,
-    intervaloMinutos: 15,
-    palavrasChave: [
-      'reforma tributária',
-      'inteligência artificial',
-      'combustíveis do futuro',
-      'apostas',
-      'redes sociais',
-      'igualdade salarial',
-    ],
-    temasFiltro: ['Tributário', 'Economia', 'Tecnologia', 'Meio Ambiente'],
-    casasMonitoradas: ['CAMARA', 'SENADO', 'CONGRESSO'],
-    apenasUrgentes: true,
-    notificacoesBrowser: true,
-    webhookUrl: 'https://api.exemplo.gov.br/webhook/parlamentar',
-    autoPublicarRedes: true,
-    impactoMinimoFiscalBi: 1.0,
-  });
+  const [config, setConfig] = useState<ConfiguracaoRobo>(CONFIG_PADRAO);
 
-  // Mostra um aviso rápido toast
   const mostrarToast = useCallback((msg: string) => {
     setToastNotificacao(msg);
     setTimeout(() => {
       setToastNotificacao(null);
-    }, 4000);
+    }, 4500);
   }, []);
 
-  // Executar varredura da pauta oficial
+  // Carregar dados 100% reais do backend ao montar
+  const carregarDadosReais = useCallback(async () => {
+    setCarregandoInicial(true);
+    setErroCarga(null);
+    try {
+      const [respP, respA, respC] = await Promise.all([
+        fetch('/api/proposicoes'),
+        fetch('/api/alertas'),
+        fetch('/api/config'),
+      ]);
+
+      const dataP = await respP.json();
+      const dataA = await respA.json();
+      const dataC = await respC.json();
+
+      if (dataP.sucesso && Array.isArray(dataP.dados)) {
+        setProposicoes(dataP.dados);
+        if (dataP.dados.length > 0) {
+          setProposicaoSelecionada((prev) => prev || dataP.dados[0]);
+        }
+        setUltimaVarredura(
+          new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        );
+      } else {
+        setErroCarga(dataP.erro || 'Falha ao consultar APIs da Câmara e do Senado.');
+      }
+
+      if (dataA.sucesso && Array.isArray(dataA.dados)) {
+        setAlertas(dataA.dados);
+      }
+
+      if (dataC.sucesso && dataC.config) {
+        setConfig({ ...CONFIG_PADRAO, ...dataC.config });
+      }
+    } catch (err: any) {
+      setErroCarga(err?.message || 'Erro de conexão com o servidor backend.');
+    } finally {
+      setCarregandoInicial(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarDadosReais();
+  }, [carregarDadosReais]);
+
+  // Executar varredura ao vivo da pauta oficial da Câmara e do Senado
   const executarVarredura = useCallback(async () => {
     setEmVarredura(true);
+    setErroCarga(null);
     try {
       const resp = await fetch('/api/scan', {
         method: 'POST',
@@ -71,92 +110,82 @@ export default function App() {
           apenasUrgentes: false,
         }),
       });
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
-      }
       const data = await resp.json();
-      if (data.sucesso && data.dados) {
-        setProposicoes(data.dados);
-        const agora = new Date().toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        });
-        setUltimaVarredura(agora);
-        if (data.novasEncontradasCount > 0) {
-          mostrarToast(`Varredura concluída! ${data.novasEncontradasCount} novas matérias adicionadas da API oficial.`);
-        } else {
-          mostrarToast(`Varredura concluída: todas as ${data.dados.length} matérias da pauta estão atualizadas.`);
-        }
+      if (!resp.ok || !data.sucesso) {
+        throw new Error(data.erro || `HTTP ${resp.status}`);
       }
-    } catch (_err) {
-      setUltimaVarredura(new Date().toLocaleTimeString('pt-BR'));
-      mostrarToast('Varredura local sincronizada com sucesso.');
+
+      setProposicoes(data.dados || []);
+      if (data.dados?.length > 0) {
+        setProposicaoSelecionada((prev) => {
+          if (!prev) return data.dados[0];
+          return data.dados.find((p: ProposicaoLegislativa) => p.id === prev.id) || data.dados[0];
+        });
+      }
+
+      const agora = new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      setUltimaVarredura(agora);
+
+      if (data.novasEncontradasCount > 0) {
+        mostrarToast(`Varredura ao vivo concluída! ${data.novasEncontradasCount} novas matérias sincronizadas das APIs oficiais.`);
+      } else {
+        mostrarToast(`Varredura concluída: ${data.dados?.length || 0} matérias oficiais atualizadas.`);
+      }
+    } catch (err: any) {
+      mostrarToast(`Erro na varredura ao vivo: ${err?.message || 'falha de comunicação com as APIs'}`);
     } finally {
       setEmVarredura(false);
     }
   }, [mostrarToast]);
 
-  // Disparar Alerta Imediato de Demonstração / Teste
-  const dispararAlertaTeste = useCallback(() => {
-    // Escolhe a proposta selecionada ou a primeira da pauta
+  // Disparar Alerta Real para a proposição selecionada
+  const dispararAlertaReal = useCallback(async () => {
     const prop = proposicaoSelecionada || proposicoes[0];
-    const novoAlerta: AlertaDivulgacao = {
-      id: `alt-teste-${Date.now()}`,
-      proposicaoId: prop.id,
-      proposicaoCodigo: prop.codigo,
-      titulo: `🚨 VOTAÇÃO IMINENTE: ${prop.codigo} - ${prop.tituloCurto}`,
-      mensagem: `O Colégio de Líderes incluiu ${prop.codigo} para deliberação nominal imediata. Quórum necessário: ${prop.quorum.minimoVotos} votos (${prop.quorum.tipo}). Termômetro de aprovação em ${prop.probabilidadeAprovacao}%.`,
-      canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
-      status: 'DISPARADO',
-      dataHora: 'Agora mesmo',
-      destinatariosSimulados: 16400,
-    };
-
-    if (somAtivado) {
-      tocarAlertaSonoro();
+    if (!prop) {
+      mostrarToast('Aguarde o carregamento de uma matéria real antes de disparar o alerta.');
+      return;
     }
 
-    setAlertas((prev) => [novoAlerta, ...prev]);
-    setAlertaModalAberto(novoAlerta);
-    mostrarToast(`Alerta sonoro e visual disparado com sucesso para ${prop.codigo}!`);
-  }, [proposicaoSelecionada, proposicoes, somAtivado, mostrarToast]);
-
-  // Carregar dados iniciais do backend ao montar
-  useEffect(() => {
-    const carregarIniciais = async () => {
-      try {
-        const [respP, respA] = await Promise.all([
-          fetch('/api/proposicoes'),
-          fetch('/api/alertas'),
-        ]);
-        const dataP = await respP.json();
-        const dataA = await respA.json();
-        if (dataP.sucesso && dataP.dados?.length) {
-          setProposicoes(dataP.dados);
-          setProposicaoSelecionada(dataP.dados[0]);
+    try {
+      const resp = await fetch('/api/alertas/disparar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposicaoId: prop.id,
+          proposicaoSnapshot: prop,
+          canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
+          webhookUrl: config.webhookUrl || undefined,
+        }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.sucesso && data.alerta) {
+        if (somAtivado) {
+          tocarAlertaSonoro();
         }
-        if (dataA.sucesso && dataA.dados?.length) {
-          setAlertas(dataA.dados);
-        }
-      } catch (_err) {
-        // Mantém defaults
+        setAlertas((prev) => [data.alerta, ...prev]);
+        setAlertaModalAberto(data.alerta);
+        mostrarToast(`Alerta registrado e disparado para ${prop.codigo}!`);
+      } else {
+        mostrarToast(data.erro || 'Não foi possível disparar o alerta.');
       }
-    };
-    carregarIniciais();
-  }, []);
+    } catch (err: any) {
+      mostrarToast(err?.message || 'Erro ao disparar alerta no servidor.');
+    }
+  }, [proposicaoSelecionada, proposicoes, config.webhookUrl, somAtivado, mostrarToast]);
 
-  // Intervalo do Robô para checagem contínua em segundo plano
+  // Intervalo do Robô para varredura automática real
   useEffect(() => {
     if (!config.ativo) return;
-    const intervalMs = Math.max(30000, config.intervaloMinutos * 60 * 1000);
+    const intervalMs = Math.max(60000, config.intervaloMinutos * 60 * 1000);
     const timer = setInterval(() => {
-      setUltimaVarredura(
-        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
+      executarVarredura();
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [config.ativo, config.intervaloMinutos]);
+  }, [config.ativo, config.intervaloMinutos, executarVarredura]);
 
   // Handlers para navegação contextual
   const irParaImpacto = (prop: ProposicaoLegislativa) => {
@@ -177,7 +206,25 @@ export default function App() {
       tocarAlertaSonoro();
     }
     setAlertaModalAberto(novoAlerta);
-    mostrarToast(`Alerta para ${novoAlerta.proposicaoCodigo} transmitido para todos os canais!`);
+    mostrarToast(`Alerta para ${novoAlerta.proposicaoCodigo} registrado e transmitido!`);
+  };
+
+  const salvarConfiguracoes = async (novaConfig: ConfiguracaoRobo) => {
+    setConfig(novaConfig);
+    try {
+      const resp = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: novaConfig }),
+      });
+      if (resp.ok) {
+        mostrarToast('Parâmetros e filtros do robô salvos no servidor!');
+      } else {
+        mostrarToast('Parâmetros aplicados na sessão.');
+      }
+    } catch {
+      mostrarToast('Parâmetros aplicados na sessão.');
+    }
   };
 
   return (
@@ -196,12 +243,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Pop-up Modal de Alerta em Tempo Real (Garantido no Navegador e em iFrame) */}
+      {/* Pop-up Modal de Alerta em Tempo Real */}
       {alertaModalAberto && (
         <ModalAlertaAtivo
           alerta={alertaModalAberto}
           proposicao={
-            proposicoes.find((p) => p.id === alertaModalAberto.proposicaoId) || proposicaoSelecionada
+            proposicoes.find((p) => p.id === alertaModalAberto.proposicaoId) || proposicaoSelecionada || undefined
           }
           onFechar={() => setAlertaModalAberto(null)}
           onVerImpacto={irParaImpacto}
@@ -216,7 +263,7 @@ export default function App() {
         roboAtivo={config.ativo}
         totalAlertas={alertas.length}
         alertas={alertas}
-        emVarredura={emVarredura}
+        emVarredura={emVarredura || carregandoInicial}
         onExecutarVarredura={executarVarredura}
         ultimaVarredura={ultimaVarredura}
         somAtivado={somAtivado}
@@ -224,58 +271,89 @@ export default function App() {
           setSomAtivado(!somAtivado);
           mostrarToast(!somAtivado ? 'Som de alertas ativado!' : 'Som de alertas silenciado.');
         }}
-        onDispararAlertaTeste={dispararAlertaTeste}
+        onDispararAlertaTeste={dispararAlertaReal}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {tabAtiva === 'radar' && (
-          <RadarVotacoes
-            proposicoes={proposicoes}
-            onSelecionarParaImpacto={irParaImpacto}
-            onSelecionarParaDivulgacao={irParaDivulgacao}
-            onExecutarVarredura={executarVarredura}
-            emVarredura={emVarredura}
-            onDispararAlertaTeste={dispararAlertaTeste}
-            onIrParaDiagnostico={() => setTabAtiva('diagnostico')}
-          />
+        {erroCarga && (
+          <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-900 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              <div>
+                <div className="font-bold">Falha ao consultar APIs oficiais do Congresso Nacional</div>
+                <div className="text-rose-700">{erroCarga}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={carregarDadosReais}
+              className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg font-semibold cursor-pointer whitespace-nowrap"
+            >
+              Tentar Novamente
+            </button>
+          </div>
         )}
 
-        {tabAtiva === 'impacto' && (
-          <DashboardImpacto
-            proposicoes={proposicoes}
-            proposicaoSelecionada={proposicaoSelecionada}
-            onSelecionarProposicao={setProposicaoSelecionada}
-            onIrParaDivulgacao={irParaDivulgacao}
-          />
-        )}
+        {carregandoInicial && proposicoes.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-xs">
+            <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
+            <h2 className="text-base font-bold text-slate-900">
+              Conectando às APIs Oficiais da Câmara dos Deputados e do Senado Federal...
+            </h2>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Buscando pautas deliberativas em tempo real, composição atual de bancadas (513 deputados e 81 senadores) e tramitações legislativas.
+            </p>
+          </div>
+        ) : (
+          <>
+            {tabAtiva === 'radar' && (
+              <RadarVotacoes
+                proposicoes={proposicoes}
+                onSelecionarParaImpacto={irParaImpacto}
+                onSelecionarParaDivulgacao={irParaDivulgacao}
+                onExecutarVarredura={executarVarredura}
+                emVarredura={emVarredura}
+                onDispararAlertaTeste={dispararAlertaReal}
+                onIrParaDiagnostico={() => setTabAtiva('diagnostico')}
+              />
+            )}
 
-        {tabAtiva === 'divulgacao' && (
-          <RoboDivulgacao
-            proposicoes={proposicoes}
-            proposicaoSelecionada={proposicaoSelecionada}
-            onSelecionarProposicao={setProposicaoSelecionada}
-            alertas={alertas}
-            onAlertaDisparado={onAlertaDisparado}
-          />
-        )}
+            {tabAtiva === 'impacto' && proposicaoSelecionada && (
+              <DashboardImpacto
+                proposicoes={proposicoes}
+                proposicaoSelecionada={proposicaoSelecionada}
+                onSelecionarProposicao={setProposicaoSelecionada}
+                onIrParaDivulgacao={irParaDivulgacao}
+              />
+            )}
 
-        {tabAtiva === 'diagnostico' && (
-          <PainelDiagnostico
-            onDispararAlertaTeste={dispararAlertaTeste}
-            somAtivado={somAtivado}
-            onToggleSom={() => setSomAtivado(!somAtivado)}
-          />
-        )}
+            {tabAtiva === 'divulgacao' && proposicaoSelecionada && (
+              <RoboDivulgacao
+                proposicoes={proposicoes}
+                proposicaoSelecionada={proposicaoSelecionada}
+                onSelecionarProposicao={setProposicaoSelecionada}
+                alertas={alertas}
+                onAlertaDisparado={onAlertaDisparado}
+                webhookUrl={config.webhookUrl}
+              />
+            )}
 
-        {tabAtiva === 'configuracoes' && (
-          <ConfiguracoesRobo
-            config={config}
-            onSalvarConfig={(novaConfig) => {
-              setConfig(novaConfig);
-              mostrarToast('Parâmetros e filtros do robô salvos com sucesso!');
-            }}
-          />
+            {tabAtiva === 'diagnostico' && (
+              <PainelDiagnostico
+                onDispararAlertaTeste={dispararAlertaReal}
+                somAtivado={somAtivado}
+                onToggleSom={() => setSomAtivado(!somAtivado)}
+              />
+            )}
+
+            {tabAtiva === 'configuracoes' && (
+              <ConfiguracoesRobo
+                config={config}
+                onSalvarConfig={salvarConfiguracoes}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -285,7 +363,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-emerald-600" />
             <span className="font-semibold text-slate-800">
-              Radar Legislativo · Robô de Votações & Análise de Impacto
+              Radar Legislativo · Dados Oficiais em Tempo Real
             </span>
           </div>
 

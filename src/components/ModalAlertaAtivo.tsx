@@ -25,8 +25,14 @@ export const ModalAlertaAtivo: React.FC<ModalAlertaAtivoProps> = ({
     }
   }, [somAtivado]);
 
+  const linkReferencia =
+    proposicao?.linkOficial ||
+    alerta.linkCompartilhavel ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
   const textoWhatsApp = encodeURIComponent(
-    `*🚨 ALERTA LEGISLATIVO: ${alerta.proposicaoCodigo}*\n${alerta.titulo}\n\n${alerta.mensagem}\n\nAcompanhe no Radar Legislativo: https://radarlegislativo.gov.br`
+    `*🚨 ALERTA LEGISLATIVO: ${alerta.proposicaoCodigo}*\n${alerta.titulo}\n\n${alerta.mensagem}${
+      linkReferencia ? `\n\nFicha oficial: ${linkReferencia}` : ''
+    }`
   );
 
   return (

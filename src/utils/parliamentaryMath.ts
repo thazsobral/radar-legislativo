@@ -125,8 +125,10 @@ export function estimarProbabilidadeAprovacao(
 /**
  * Formata números de moeda/impacto em bilhões ou milhões de reais (BRL).
  */
-export function formatarValorImpacto(valorBi: number): string {
-  if (!valorBi || valorBi === 0) return 'Neutro / Não quantificado';
+export function formatarValorImpacto(valorBi: number | null | undefined): string {
+  if (valorBi === null || valorBi === undefined || valorBi === 0) {
+    return 'Não quantificado na API oficial';
+  }
   if (Math.abs(valorBi) >= 1) {
     return `R$ ${valorBi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} bilhões`;
   }
@@ -142,7 +144,16 @@ export function gerarTextoDivulgacao(
   canal: CanalDivulgacao
 ): string {
   const quorumTxt = `${proposta.quorum.minimoVotos} votos (${proposta.quorum.tipo})`;
-  const casaNome = proposta.casa === 'CAMARA' ? 'Câmara dos Deputados' : proposta.casa === 'SENADO' ? 'Senado Federal' : 'Congresso Nacional';
+  const casaNome =
+    proposta.casa === 'CAMARA'
+      ? 'Câmara dos Deputados'
+      : proposta.casa === 'SENADO'
+      ? 'Senado Federal'
+      : 'Congresso Nacional';
+  const relatorStr =
+    proposta.relator.partido && proposta.relator.partido !== '—'
+      ? `${proposta.relator.nome} (${proposta.relator.partido}/${proposta.relator.uf})`
+      : proposta.relator.nome;
 
   if (canal === 'TWITTER') {
     const tweet = `🚨 VOTAÇÃO NO CONGRESSO: ${proposta.codigo}
@@ -150,34 +161,40 @@ Casa: ${casaNome}
 Pauta: ${proposta.tituloCurto}
 
 ⚖️ Quórum: ${quorumTxt}
-📊 Probabilidade de aprovação: ${proposta.probabilidadeAprovacao}%
-🏛️ Relator: ${proposta.relator.nome} (${proposta.relator.partido}/${proposta.relator.uf})
+📊 Termômetro: ${proposta.probabilidadeAprovacao}%
+🏛️ Relator: ${relatorStr}
 
-Saiba mais e veja o impacto: ${proposta.linkOficial || 'https://radarlegislativo.gov.br'}
-#CongressoNacional #Politica #${proposta.siglaTipo}`;
+Saiba mais: ${proposta.linkOficial}
+#CongressoNacional #${proposta.siglaTipo}`;
     return tweet.length > 280 ? tweet.substring(0, 277) + '...' : tweet;
   }
 
   if (canal === 'WHATSAPP' || canal === 'TELEGRAM') {
+    const pontosPos =
+      proposta.pontosPositivos.length > 0
+        ? `\n${proposta.pontosPositivos.slice(0, 2).map((p) => `✅ ${p}`).join('\n')}`
+        : '';
+    const pontosCrit =
+      proposta.pontosCriticos.length > 0
+        ? `\n${proposta.pontosCriticos.slice(0, 2).map((c) => `⚠️ ${c}`).join('\n')}`
+        : '';
+    const pontosBloco =
+      pontosPos || pontosCrit ? `\n\n*Destaques:*${pontosPos}${pontosCrit}` : '';
+
     return `*🔔 ALERTA LEGISLATIVO:* *${proposta.codigo}*
 *${casaNome}* | Status: _${proposta.statusTramitacao}_
 
-*Assunto:* ${proposta.tituloCurto}
-*Resumo Cidadão:* ${proposta.resumoCidadao}
+*Ementa:* ${proposta.ementa}
 
-*📊 Termômetro de Votação:*
-• Probabilidade de aprovação: *${proposta.probabilidadeAprovacao}%*
+*📊 Dados Regimentais:*
+• Termômetro de quórum: *${proposta.probabilidadeAprovacao}%*
 • Quórum exigido: *${proposta.quorum.descricaoRegra}*
-• Relatoria: Dep./Sen. ${proposta.relator.nome} (${proposta.relator.partido}-${proposta.relator.uf})
-• Impacto Fiscal Estimado: *${formatarValorImpacto(proposta.impacto.fiscal.valorEstimadoBi)}* (${proposta.impacto.fiscal.tipo})
+• Relatoria: ${relatorStr}
+• Órgão atual: ${proposta.orgaoAtual}${pontosBloco}
 
-*Pontos Chave:*
-${proposta.pontosPositivos.slice(0, 2).map((p) => `✅ ${p}`).join('\n')}
-${proposta.pontosCriticos.slice(0, 2).map((c) => `⚠️ ${c}`).join('\n')}
-
-🔗 Link de Acompanhamento: ${proposta.linkOficial}`;
+🔗 Ficha Oficial: ${proposta.linkOficial}`;
   }
 
   // Webhook payload ou padrão limpo
-  return `[RADAR LEGISLATIVO] Proposta ${proposta.codigo} entrou na pauta de votação: "${proposta.tituloCurto}". Quórum: ${quorumTxt}. Probabilidade estimada: ${proposta.probabilidadeAprovacao}%.`;
+  return `[RADAR LEGISLATIVO] Proposta ${proposta.codigo} (${casaNome}): "${proposta.tituloCurto}". Quórum: ${quorumTxt}. Link oficial: ${proposta.linkOficial}`;
 }
