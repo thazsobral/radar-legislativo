@@ -12,6 +12,7 @@ import {
   Send,
 } from 'lucide-react';
 import { ConfiguracaoRobo, CasaLegislativa } from '../types/legislative';
+import { testarWebhookReal } from '../services/apiClient';
 
 interface ConfiguracoesRoboProps {
   config: ConfiguracaoRobo;
@@ -78,20 +79,15 @@ export const ConfiguracoesRobo: React.FC<ConfiguracoesRoboProps> = ({
     setWebhookTesteMsg('Enviando requisição HTTP POST real para o endpoint informado...');
 
     try {
-      const resp = await fetch('/api/webhook/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhookUrl: formData.webhookUrl.trim() }),
-      });
-      const data = await resp.json();
-      if (resp.ok && data.sucesso) {
+      const data = await testarWebhookReal(formData.webhookUrl.trim());
+      if (data.sucesso) {
         setWebhookErro(false);
         setWebhookTesteMsg(
           `HTTP ${data.statusHttp} OK (${data.latenciaMs} ms) — Webhook recebeu o pacote JSON de teste!`
         );
       } else {
         setWebhookErro(true);
-        setWebhookTesteMsg(data.erro || `Falha HTTP ${data.statusHttp || resp.status}`);
+        setWebhookTesteMsg(data.erro || `Falha HTTP ${data.statusHttp || 'de rede'}`);
       }
     } catch (err: any) {
       setWebhookErro(true);

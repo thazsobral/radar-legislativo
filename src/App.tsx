@@ -12,20 +12,16 @@ import {
   ConfiguracaoRobo,
 } from './types/legislative';
 import { tocarAlertaSonoro } from './utils/alertAudio';
+import {
+  CONFIG_PADRAO,
+  dispararAlertaRobo,
+  fetchAlertasReais,
+  fetchConfigRobo,
+  fetchProposicoesReais,
+  saveConfigRobo,
+  scanProposicoesReais,
+} from './services/apiClient';
 import { ExternalLink, Radio, RefreshCw, AlertCircle } from 'lucide-react';
-
-const CONFIG_PADRAO: ConfiguracaoRobo = {
-  ativo: true,
-  intervaloMinutos: 15,
-  palavrasChave: ['PEC', 'Reforma', 'IA', 'Orçamento', 'Tributário', 'Urgência'],
-  temasFiltro: ['Economia', 'Tecnologia', 'Orçamento', 'Administração Pública'],
-  casasMonitoradas: ['CAMARA', 'SENADO', 'CONGRESSO'],
-  apenasUrgentes: false,
-  notificacoesBrowser: true,
-  webhookUrl: '',
-  autoPublicarRedes: false,
-  impactoMinimoFiscalBi: 0,
-};
 
 export default function App() {
   const [tabAtiva, setTabAtiva] = useState<TabType>('radar');
@@ -52,42 +48,33 @@ export default function App() {
     }, 4500);
   }, []);
 
-  // Carregar dados 100% reais do backend ao montar
+  // Carregar dados 100% reais (via backend ou direto das APIs oficiais em hospedagem estática)
   const carregarDadosReais = useCallback(async () => {
     setCarregandoInicial(true);
     setErroCarga(null);
     try {
-      const [respP, respA, respC] = await Promise.all([
-        fetch('/api/proposicoes'),
-        fetch('/api/alertas'),
-        fetch('/api/config'),
+      const [resP, listaA, cfg] = await Promise.all([
+        fetchProposicoesReais(),
+        fetchAlertasReais(),
+        fetchConfigRobo(),
       ]);
 
-      const dataP = await respP.json();
-      const dataA = await respA.json();
-      const dataC = await respC.json();
-
-      if (dataP.sucesso && Array.isArray(dataP.dados)) {
-        setProposicoes(dataP.dados);
-        if (dataP.dados.length > 0) {
-          setProposicaoSelecionada((prev) => prev || dataP.dados[0]);
+      if (resP.sucesso && Array.isArray(resP.dados)) {
+        setProposicoes(resP.dados);
+        if (resP.dados.length > 0) {
+          setProposicaoSelecionada((prev) => prev || resP.dados[0]);
         }
         setUltimaVarredura(
           new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         );
       } else {
-        setErroCarga(dataP.erro || 'Falha ao consultar APIs da Câmara e do Senado.');
+        setErroCarga(resP.erro || 'Falha ao consultar APIs da Câmara e do Senado.');
       }
 
-      if (dataA.sucesso && Array.isArray(dataA.dados)) {
-        setAlertas(dataA.dados);
-      }
-
-      if (dataC.sucesso && dataC.config) {
-        setConfig({ ...CONFIG_PADRAO, ...dataC.config });
-      }
+      setAlertas(listaA);
+      setConfig(cfg);
     } catch (err: any) {
-      setErroCarga(err?.message || 'Erro de conexão com o servidor backend.');
+      setErroCarga(err?.message || 'Erro de conexão com as APIs legislativas.');
     } finally {
       setCarregandoInicial(false);
     }
@@ -102,17 +89,12 @@ export default function App() {
     setEmVarredura(true);
     setErroCarga(null);
     try {
-      const resp = await fetch('/api/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          casa: 'TODAS',
-          apenasUrgentes: false,
-        }),
+      const data = await scanProposicoesReais({
+        casa: 'TODAS',
+        apenasUrgentes: false,
       });
-      const data = await resp.json();
-      if (!resp.ok || !data.sucesso) {
-        throw new Error(data.erro || `HTTP ${resp.status}`);
+      if (!data.sucesso) {
+        throw new Error(data.erro || 'Falha na varredura');
       }
 
       setProposicoes(data.dados || []);
@@ -151,29 +133,23 @@ export default function App() {
     }
 
     try {
-      const resp = await fetch('/api/alertas/disparar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proposicaoId: prop.id,
-          proposicaoSnapshot: prop,
-          canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
-          webhookUrl: config.webhookUrl || undefined,
-        }),
+      const data = await dispararAlertaRobo({
+        proposicao: prop,
+        canais: ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
+        webhookUrl: config.webhookUrl || undefined,
       });
-      const data = await resp.json();
-      if (resp.ok && data.sucesso && data.alerta) {
+      if (data.sucesso && data.alerta) {
         if (somAtivado) {
           tocarAlertaSonoro();
         }
-        setAlertas((prev) => [data.alerta, ...prev]);
+        setAlertas((prev) => [data.alerta!, ...prev]);
         setAlertaModalAberto(data.alerta);
         mostrarToast(`Alerta registrado e disparado para ${prop.codigo}!`);
       } else {
         mostrarToast(data.erro || 'Não foi possível disparar o alerta.');
       }
     } catch (err: any) {
-      mostrarToast(err?.message || 'Erro ao disparar alerta no servidor.');
+      mostrarToast(err?.message || 'Erro ao disparar alerta.');
     }
   }, [proposicaoSelecionada, proposicoes, config.webhookUrl, somAtivado, mostrarToast]);
 
@@ -211,19 +187,11 @@ export default function App() {
 
   const salvarConfiguracoes = async (novaConfig: ConfiguracaoRobo) => {
     setConfig(novaConfig);
-    try {
-      const resp = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: novaConfig }),
-      });
-      if (resp.ok) {
-        mostrarToast('Parâmetros e filtros do robô salvos no servidor!');
-      } else {
-        mostrarToast('Parâmetros aplicados na sessão.');
-      }
-    } catch {
-      mostrarToast('Parâmetros aplicados na sessão.');
+    const res = await saveConfigRobo(novaConfig);
+    if (res.persistidoServidor) {
+      mostrarToast('Parâmetros e filtros do robô salvos no servidor!');
+    } else {
+      mostrarToast('Parâmetros e filtros salvos localmente no navegador!');
     }
   };
 

@@ -14,6 +14,25 @@ import {
 const CAMARA_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const SENADO_BASE = 'https://legis.senado.leg.br/dadosabertos';
 
+async function fetchJsonWithTimeout(
+  url: string,
+  timeoutMs: number,
+  headers?: Record<string, string>
+): Promise<any | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      ...(headers ? { headers } : {}),
+      signal: controller.signal,
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const PARTIDOS_GOVERNISTAS = new Set(['PT', 'PSB', 'PCDOB', 'PV', 'PDT', 'PSOL', 'REDE']);
 const PARTIDOS_OPOSICAO = new Set(['PL', 'NOVO', 'MISSÃO', 'MISSAO', 'PSDB']);
 const PARTIDOS_CENTRAO = new Set([
@@ -72,14 +91,10 @@ export async function obterBancadasReais(): Promise<BancadasCache> {
   }
 
   const [camaraRes, senadoRes] = await Promise.allSettled([
-    fetch(`${CAMARA_BASE}/deputados?itens=1000`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(7000),
-    }).then((r) => (r.ok ? r.json() : null)),
-    fetch(`${SENADO_BASE}/senador/lista/atual`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(7000),
-    }).then((r) => (r.ok ? r.json() : null)),
+    fetchJsonWithTimeout(`${CAMARA_BASE}/deputados?itens=1000`, 7000),
+    fetchJsonWithTimeout(`${SENADO_BASE}/senador/lista/atual`, 7000, {
+      Accept: 'application/json',
+    }),
   ]);
 
   const camaraPartidos: Record<string, number> = {};
@@ -193,12 +208,11 @@ async function buscarProposicoesCamara(
   // 1. Se não há busca por termo específico, buscar a Pauta real das sessões deliberativas do Plenário (idOrgao=180)
   if (!opcoes?.termo) {
     try {
-      const evResp = await fetch(
+      const evJson = await fetchJsonWithTimeout(
         `${CAMARA_BASE}/eventos?idOrgao=180&ordem=DESC&ordenarPor=dataHoraInicio&itens=6`,
-        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) }
+        6000
       );
-      if (evResp.ok) {
-        const evJson = await evResp.json();
+      if (evJson) {
         const eventosDelib = (evJson.dados || []).filter((e: any) =>
           (e.descricao || '').toLowerCase().includes('deliberativa') ||
           (e.descricaoTipo || '').toLowerCase().includes('deliberativa')
@@ -206,12 +220,11 @@ async function buscarProposicoesCamara(
 
         for (const ev of eventosDelib.slice(0, 2)) {
           try {
-            const pautaResp = await fetch(`${CAMARA_BASE}/eventos/${ev.id}/pauta`, {
-              headers: { Accept: 'application/json' },
-              signal: AbortSignal.timeout(5000),
-            });
-            if (pautaResp.ok) {
-              const pautaJson = await pautaResp.json();
+            const pautaJson = await fetchJsonWithTimeout(
+              `${CAMARA_BASE}/eventos/${ev.id}/pauta`,
+              5000
+            );
+            if (pautaJson) {
               for (const item of pautaJson.dados || []) {
                 const propAlvo = item.proposicaoRelacionada_?.id
                   ? item.proposicaoRelacionada_
@@ -267,13 +280,12 @@ async function buscarProposicoesCamara(
     params.set('keywords', opcoes.termo);
   }
 
-  const propResp = await fetch(`${CAMARA_BASE}/proposicoes?${params.toString()}`, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(7000),
-  });
+  const propJson = await fetchJsonWithTimeout(
+    `${CAMARA_BASE}/proposicoes?${params.toString()}`,
+    7000
+  );
 
-  if (propResp.ok) {
-    const propJson = await propResp.json();
+  if (propJson) {
     for (const item of propJson.dados || []) {
       if (!candidatosMap.has(item.id) && candidatosMap.size < 10) {
         candidatosMap.set(item.id, {
@@ -293,22 +305,10 @@ async function buscarProposicoesCamara(
   const resultados = await Promise.allSettled(
     candidatos.map(async (cand): Promise<ProposicaoLegislativa> => {
       const [detRes, autRes, tramRes, temRes] = await Promise.allSettled([
-        fetch(`${CAMARA_BASE}/proposicoes/${cand.id}`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        }).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${CAMARA_BASE}/proposicoes/${cand.id}/autores`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        }).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${CAMARA_BASE}/proposicoes/${cand.id}/tramitacoes`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        }).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${CAMARA_BASE}/proposicoes/${cand.id}/temas`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        }).then((r) => (r.ok ? r.json() : null)),
+        fetchJsonWithTimeout(`${CAMARA_BASE}/proposicoes/${cand.id}`, 5000),
+        fetchJsonWithTimeout(`${CAMARA_BASE}/proposicoes/${cand.id}/autores`, 5000),
+        fetchJsonWithTimeout(`${CAMARA_BASE}/proposicoes/${cand.id}/tramitacoes`, 5000),
+        fetchJsonWithTimeout(`${CAMARA_BASE}/proposicoes/${cand.id}/temas`, 5000),
       ]);
 
       const det = detRes.status === 'fulfilled' ? detRes.value?.dados : null;
@@ -472,13 +472,13 @@ async function buscarProposicoesSenado(
   try {
     const hoje = new Date();
     const inicioMes = `${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, '0')}01`;
-    const agResp = await fetch(`${SENADO_BASE}/plenario/agenda/mes/${inicioMes}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(7000),
-    });
+    const agJson = await fetchJsonWithTimeout(
+      `${SENADO_BASE}/plenario/agenda/mes/${inicioMes}`,
+      7000,
+      { Accept: 'application/json' }
+    );
 
-    if (agResp.ok) {
-      const agJson = await agResp.json();
+    if (agJson) {
       const sessoesRaw = agJson?.AgendaPlenario?.Sessoes?.Sessao || [];
       const sessoes = (Array.isArray(sessoesRaw) ? sessoesRaw : [sessoesRaw]).reverse();
 
@@ -614,12 +614,12 @@ async function buscarProposicoesSenado(
     try {
       const anoAtual = new Date().getFullYear();
       const siglaConsulta = opcoes?.siglaTipo && opcoes.siglaTipo !== 'TODOS' ? opcoes.siglaTipo : 'PEC';
-      const procResp = await fetch(`${SENADO_BASE}/processo?sigla=${siglaConsulta}&ano=${anoAtual}`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (procResp.ok) {
-        const procs = await procResp.json();
+      const procs = await fetchJsonWithTimeout(
+        `${SENADO_BASE}/processo?sigla=${siglaConsulta}&ano=${anoAtual}`,
+        6000,
+        { Accept: 'application/json' }
+      );
+      if (procs) {
         if (Array.isArray(procs)) {
           for (const p of procs.slice(-10).reverse()) {
             const codMat = String(p.codigoMateria || p.id || '').trim();

@@ -16,6 +16,7 @@ import {
 import { ProposicaoLegislativa, CanalDivulgacao, AlertaDivulgacao } from '../types/legislative';
 import { gerarTextoDivulgacao } from '../utils/parliamentaryMath';
 import { CardVisualSocial } from './CardVisualSocial';
+import { dispararAlertaRobo } from '../services/apiClient';
 
 interface RoboDivulgacaoProps {
   proposicoes: ProposicaoLegislativa[];
@@ -52,26 +53,20 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
     }
   };
 
-  // Disparar Alerta real através do servidor (e webhook HTTP se configurado)
+  // Disparar Alerta real através do servidor ou modo estático
   const dispararAlertaGeral = async () => {
     setDisparando(true);
     setErroDisparo('');
     try {
-      const resp = await fetch('/api/alertas/disparar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proposicaoId: proposicaoSelecionada.id,
-          proposicaoSnapshot: proposicaoSelecionada,
-          canais: webhookUrl
-            ? ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'WEBHOOK', 'PUSH']
-            : ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
-          mensagemPersonalizada: textoGerado,
-          webhookUrl: webhookUrl || undefined,
-        }),
+      const data = await dispararAlertaRobo({
+        proposicao: proposicaoSelecionada,
+        canais: webhookUrl
+          ? ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'WEBHOOK', 'PUSH']
+          : ['WHATSAPP', 'TELEGRAM', 'TWITTER', 'PUSH'],
+        mensagemPersonalizada: textoGerado,
+        webhookUrl: webhookUrl || undefined,
       });
-      const data = await resp.json();
-      if (resp.ok && data.sucesso && data.alerta) {
+      if (data.sucesso && data.alerta) {
         onAlertaDisparado(data.alerta);
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification(`🚨 ALERTA: ${proposicaoSelecionada.codigo}`, {
@@ -79,7 +74,7 @@ export const RoboDivulgacao: React.FC<RoboDivulgacaoProps> = ({
           });
         }
       } else {
-        setErroDisparo(data?.erro || 'Erro ao registrar disparo no servidor.');
+        setErroDisparo(data?.erro || 'Erro ao registrar disparo.');
       }
     } catch (err: any) {
       setErroDisparo(err?.message || 'Falha de rede ao enviar alerta.');

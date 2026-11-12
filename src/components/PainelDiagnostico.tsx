@@ -3,8 +3,6 @@ import {
   CheckCircle2,
   RefreshCw,
   Zap,
-  Volume2,
-  VolumeX,
   Bell,
   Radio,
   Server,
@@ -18,6 +16,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+import { fetchDiagnosticoReal } from '../services/apiClient';
+
 interface PainelDiagnosticoProps {
   onDispararAlertaTeste: () => void;
   somAtivado: boolean;
@@ -26,6 +26,7 @@ interface PainelDiagnosticoProps {
 
 interface DiagnosticoResposta {
   sucesso: boolean;
+  modoExecucao?: 'BACKEND_SERVER' | 'STATIC_BROWSER';
   tempoExecucaoTotalMs?: number;
   uptimeSegundos?: number;
   timestamp?: string;
@@ -52,7 +53,6 @@ interface DiagnosticoResposta {
 export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
   onDispararAlertaTeste,
   somAtivado,
-  onToggleSom,
 }) => {
   const [carregando, setCarregando] = useState(true);
   const [erroDiagnostico, setErroDiagnostico] = useState<string | null>(null);
@@ -63,18 +63,14 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
     setCarregando(true);
     setErroDiagnostico(null);
     try {
-      const resp = await fetch('/api/diagnostico');
-      if (!resp.ok) {
-        throw new Error(`Servidor retornou HTTP ${resp.status}`);
-      }
-      const data: DiagnosticoResposta = await resp.json();
+      const data: DiagnosticoResposta = await fetchDiagnosticoReal();
       setDadosDiagnostico(data);
       setUltimaAtualizacao(
         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       );
     } catch (err: any) {
       setErroDiagnostico(
-        err?.message || 'Não foi possível comunicar com o backend para verificar os serviços.'
+        err?.message || 'Não foi possível verificar o status dos serviços.'
       );
       setDadosDiagnostico(null);
     } finally {
@@ -190,33 +186,6 @@ export const PainelDiagnostico: React.FC<PainelDiagnosticoProps> = ({
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={onToggleSom}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-                  somAtivado
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                    : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                }`}
-                title={somAtivado ? 'Silenciar som de alerta' : 'Ativar som de alerta'}
-              >
-                {somAtivado ? (
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
-                ) : (
-                  <VolumeX className="w-3.5 h-3.5 text-slate-500" />
-                )}
-                <span>{somAtivado ? 'Áudio Ativo' : 'Áudio Mudo'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onDispararAlertaTeste}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer transition-colors shadow-xs"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-300" />
-                <span>Testar Alerta Imediato</span>
-              </button>
-
               <button
                 type="button"
                 onClick={executarDiagnostico}
